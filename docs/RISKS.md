@@ -1,0 +1,25 @@
+# Risks & Fixes
+
+R-IDs are name tags. Score = Likelihood x Impact; Critical >= 15, High >= 10.
+
+| ID | Category | What could go wrong | Likelihood (1-5) | Impact (1-5) | Score | Level | Fix | How to verify | Features |
+|---|---|---|---|---|---|---|---|---|---|
+| R01 | Pitch | Judges say 'this is just NotebookLM' | 4 | 4 | 16 | Critical | Build and pitch four things it does not do: graph that evolves over months, links with reason/example/strength, cross-subject links, exam mode + syllabus versioning. Pitch line: 'NotebookLM answers questions about your files. We show how your whole semester connects.' | Say the pitch line in the first 30 seconds; show a side-by-side slide. | F07,F09,F12 |
+| R02 | Scope | Too many features, demo half-working | 5 | 5 | 25 | Critical | Freeze scope: v1 features must be flawless; v1.5 only after v1 passes quality gates; Roadmap is slides only. | Check Overview 'Fits deadline?' weekly; cut v1.5 first. | All |
+| R03 | Quality | Wrong or nonsense links | 4 | 5 | 20 | Critical | Two-step linking (embeddings then LLM judge); reason + two source snippets required; weak links hidden; student edits are locked. | Quality gate G01 and G02. | F06,F07,F08 |
+| R04 | UX | 3D feels like a gimmick | 3 | 3 | 9 | Medium | Clicking any node/link opens a panel with theory, reason and snippets; guided learning-path tour; 2D focus mode. | Ask 3 classmates to find a topic's links in under 20 seconds. | F10,F12,F21 |
+| R05 | Data | 'Repeated questions' with no data | 4 | 3 | 12 | High | Only compute from papers the student uploaded and label it so; otherwise show 'important concepts by graph importance'. Never fabricate. | Verify label text on both modes. | F18,F19 |
+| R06 | Ingestion | Messy handwriting / scans misread | 4 | 4 | 16 | Critical | Vision LLM instead of classic OCR; skippable review screen; mark unreviewed topics and link them conservatively. | Quality gate G03 on 10 real scanned pages. | F02,F03 |
+| R07 | Cost/Speed | API cost and slow processing with many students | 3 | 4 | 12 | High | Process only the new file; cache embeddings and outputs; background queue with progress; regenerate only changed theory cards. | Quality gate G07; track tokens per upload. | F09 |
+| R08 | Quality | Same topic with different names | 4 | 3 | 12 | High | Embedding similarity + LLM confirm, store aliases, manual merge/split button. | Quality gate G06. | F05 |
+| R09 | UX | Graph becomes a hairball over months | 4 | 4 | 16 | Critical | Cluster hierarchy, hide weak edges by default, topic search for local 2-3 hop view, cap visible nodes. | Load a 500-topic test graph and check readability. | F11,F13 |
+| R10 | Chat | Chatbot hallucinates or ignores notes | 3 | 5 | 15 | Critical | Retrieval with citations; low confidence -> say 'not in your notes' first, then labeled general answer; notes-vs-textbook preference respected. | Quality gates G04 and G05. | F14,F17,F20 |
+| R11 | Legal/Privacy | Copyright (textbooks) and privacy of notes | 3 | 4 | 12 | High | Private by default; share links show only graph, never files; unguessable revocable tokens; delete-all-data button; consent text. | Test that a share link cannot reach any file or other subject. | F22,F23 |
+| R12 | Maintenance | Syllabus/scheme changes every ~4 years | 3 | 3 | 9 | Medium | University > scheme > subject hierarchy in schema; syllabus_topic_map migrates old topics to new; admin update tool on roadmap. | Add a fake 'new scheme' in test data and migrate one subject. | F16,F24,F25 |
+| R13 | UX | Empty graph looks boring at first | 4 | 3 | 12 | High | Ghost nodes from syllabus that light up as notes arrive; shows coverage gaps. | First-run screen shows structure before any upload. | F16 |
+| R14 | Performance | 3D lag on weak laptops/phones | 4 | 4 | 16 | Critical | Render only the visible cluster, cap nodes, auto-fallback to 2D when FPS is low. | Quality gate G08 on the weakest device you can find. | F11,F12,F15 |
+| R15 | Quality | Wrong subject detection from folder names | 3 | 3 | 9 | Medium | Verify subject from content; if mismatch, ask the student, never move silently. | Upload a deliberately misplaced file. | F01 |
+| R16 | Data | New uploads overwrite corrected links | 2 | 4 | 8 | Medium | locked flag + status (edited/deleted); pipeline step 11 checks before every write. | Edit a link, upload a new file, confirm the edit survives. | F08,F09 |
+| R17 | Demo | Demo-day failure (Wi-Fi, API limits) | 3 | 5 | 15 | Critical | Pre-process demo data; cached graph JSON; offline demo mode; recorded backup video; keep API key quota reserved. | Quality gate G10: 3 offline runs. | F09 |
+| R18 | Engineering | AI-generated code becomes messy | 4 | 3 | 12 | High | Fixed data model first; build order data -> pipeline -> graph UI; one module per prompt; commit after each working step. | Review structure at the end of each phase. | All |
+| R19 | Quality | Cross-subject links look forced | 3 | 4 | 12 | High | Higher threshold for cross-subject; require concept-level match with snippets from both subjects; show only strength >= 3 by default. | Quality gate G09: faculty-style sanity check. | F06,F12 |
