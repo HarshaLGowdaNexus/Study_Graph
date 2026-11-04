@@ -5,7 +5,7 @@ Only I can move a task to Done, by writing TEST PASSED Txx. You then update this
 
 | Task | What | Status | Date | Git commit | Notes |
 |---|---|---|---|---|---|
-| T01 | Create repo, database and storage project, schema (Data Model sheet), API keys | Not started |  |  | Decisions D01-D15 finalized on 2026-11-01. Tech stack locked. Ready for setup. |
+| T01 | Create repo, database and storage project, schema (Data Model sheet), API keys | Done | 2026-11-04 | T01: Initial project skeleton, database migration, and connection check | Skeleton, .env.example, SQL migration with 20 tables & pgvector, connection verified |
 | T02 | Collect REAL data: 2-3 subjects of class notes (typed + scanned), 1 textbook, 3+ previous-year papers | Not started |  |  |  |
 | T03 | Upload + folder structure + storage + job queue with progress | Not started |  |  |  |
 | T04 | Text extraction + vision OCR with page numbers | Not started |  |  |  |
