@@ -13,6 +13,7 @@ from typing import Optional
 from backend.app.database import get_db_cursor
 from backend.app.services.extractor import extractor_service
 from backend.app.services.storage import storage_service
+from backend.app.services.topic_extractor import topic_extractor_service
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,16 @@ async def process_document_job(document_id: str, user_id: str) -> None:
                     (document_id, chunk.page, chunk.text, module_no, chunk.method),
                 )
 
-        # Step 6: Mark status as 'done'
+        # Step 6: Extract topics from chunks (Task T05, Pipeline Step 6)
+        logger.info(f"[Job Worker] Starting topic extraction for document {document_id}")
+        topic_result = topic_extractor_service.process_document_topics(document_id)
+        logger.info(
+            f"[Job Worker] Document {document_id} topic extraction complete: "
+            f"{topic_result.topics_created} topics created, {topic_result.topics_rejected} rejected, "
+            f"tokens used: {topic_result.token_usage['total_tokens']}"
+        )
+
+        # Step 7: Mark status as 'done'
         update_document_status(document_id, "done")
         logger.info(f"[Job Worker] Document {document_id} processing complete: status -> 'done'")
 

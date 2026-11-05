@@ -9,7 +9,7 @@ Only I can move a task to Done, by writing TEST PASSED Txx. You then update this
 | T02 | Collect REAL data: 2-3 subjects of class notes (typed + scanned), 1 textbook, 3+ previous-year papers | Done | 2026-11-05 | T02: Sample data structure, ground truth CSV templates, and validator | sample-data folder structure, 3 CSV templates (manifest, test_questions, link_labels), check_sample_data.py validator |
 | T03 | Upload + folder structure + storage + job queue with progress | Done | 2026-11-05 | T03: File upload into subject/module folders, Supabase storage, background job queue, and live status UI | Backend upload API, storage service, FastAPI background job, React upload hub with live progress polling, and automated test suite |
 | T04 | Text extraction + vision OCR with page numbers | Done | 2026-11-05 | T04: Text extraction with direct parser, Gemini Flash vision fallback, and paragraph chunking | pdfplumber + python-pptx direct extraction, Gemini Flash vision fallback for scans/photos, paragraph chunking with page & module tagging, token logging |
-| T05 | Topic extraction (keyword, 1-4 lines, real-world use, source chunks) | Not started |  |  |  |
+| T05 | Topic extraction (keyword, 1-4 lines, real-world use, source chunks) | Done | 2026-11-06 | T05: Structured topic extraction with Gemini Flash, Pydantic validation, and chunk grounding | Versioned prompt v1, Pydantic schemas, Gemini Flash structured JSON extraction, chunk ID grounding check, 4-line limit validator, retry logic, topics & topic_sources persistence, test suite |
 | T06 | Review screen (skippable) | Not started |  |  |  |
 | T07 | Embeddings + duplicate merge + aliases | Not started |  |  |  |
 | T08 | Candidate finder (same subject + cross-subject, thresholds) | Not started |  |  |  |
