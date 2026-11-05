@@ -1,0 +1,12 @@
+file_name,subject,module,type,notes
+cn_mod1_intro_lecture.pdf,computer_networks,module_1,typed-pdf,Typed lecture handout on OSI 7-layer model and TCP/IP
+cn_mod1_scanned_notes.pdf,computer_networks,module_1,scanned,Handwritten student notes with network topologies and cable diagrams
+cn_mod2_transport_layer.pdf,computer_networks,module_2,typed-pdf,Typed slide deck notes on TCP 3-way handshake and UDP
+os_mod1_processes_threads.pdf,operating_systems,module_1,typed-pdf,Typed university notes on process states PCB and context switching
+os_mod1_handwritten_diagrams.jpg,operating_systems,module_1,image,Handwritten diagram of fork() and process hierarchy tree
+os_mod2_deadlocks_sync.pdf,operating_systems,module_2,typed-pdf,Typed notes on mutex semaphores and Banker's algorithm
+tanenbaum_computer_networks_sample.pdf,computer_networks,module_1,textbook,Standard reference textbook chapter covering socket programming
+exam_paper_may2024.pdf,computer_networks,papers,paper,End semester exam paper May 2024
+exam_paper_dec2023.pdf,computer_networks,papers,paper,End semester exam paper Dec 2023
+exam_paper_may2023.pdf,operating_systems,papers,paper,End semester exam paper May 2023
+

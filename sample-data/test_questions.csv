@@ -1,0 +1,32 @@
+id,question_type,question,expected_subject,expected_module,expected_file,expected_page,ideal_answer_brief
+1,in-notes,What are the seven layers of the OSI model in order from physical to application?,computer_networks,module_1,cn_mod1_intro_lecture.pdf,2,Physical Data Link Network Transport Session Presentation Application
+2,in-notes,How does a TCP 3-way handshake establish a connection between client and server?,computer_networks,module_2,cn_mod2_transport_layer.pdf,4,SYN sent by client SYN-ACK returned by server ACK sent by client to finalize connection
+3,in-notes,What is the primary difference between TCP and UDP regarding reliability?,computer_networks,module_2,cn_mod2_transport_layer.pdf,7,TCP is connection-oriented with guaranteed delivery and flow control UDP is connectionless and best-effort
+4,in-notes,What is the role of the Process Control Block (PCB) in an operating system?,operating_systems,module_1,os_mod1_processes_threads.pdf,3,Stores process state program counter CPU registers scheduling info and memory limits
+5,in-notes,What are the four necessary conditions for a deadlock to occur?,operating_systems,module_2,os_mod2_deadlocks_sync.pdf,5,Mutual exclusion Hold and wait No preemption Circular wait
+6,in-notes,What is the purpose of a socket in network communication?,computer_networks,module_1,tanenbaum_computer_networks_sample.pdf,12,An endpoint for communication defined by an IP address and port number combining OS and network
+7,in-notes,What is the difference between a process and a thread?,operating_systems,module_1,os_mod1_processes_threads.pdf,5,A process is an executing program with isolated memory a thread is a lightweight execution unit sharing process memory
+8,in-notes,How does the Banker's algorithm achieve deadlock avoidance?,operating_systems,module_2,os_mod2_deadlocks_sync.pdf,8,Checks if allocating resources leaves system in a safe state where every process can complete
+9,in-notes,What is context switching and why does it introduce CPU overhead?,operating_systems,module_1,os_mod1_processes_threads.pdf,4,Saving state of current process and restoring state of next process CPU executes no user work during switch
+10,in-notes,What is the function of the Address Resolution Protocol (ARP)?,computer_networks,module_1,cn_mod1_intro_lecture.pdf,6,Maps an IP address (network layer) to a physical MAC address (link layer) on a local network
+11,in-notes,Explain the difference between a counting semaphore and a binary semaphore.,operating_systems,module_2,os_mod2_deadlocks_sync.pdf,3,Binary semaphore takes only 0 or 1 like a mutex counting semaphore controls access to a resource pool of N units
+12,in-notes,What is the function of the Transport Layer port numbers?,computer_networks,module_2,cn_mod2_transport_layer.pdf,2,Identifies the specific application process on the host machine to multiplex and demultiplex data
+13,in-notes,What occurs during a page fault in virtual memory management?,operating_systems,module_1,os_mod1_processes_threads.pdf,9,Trap to OS when requested page is not in physical RAM OS loads it from swap storage and updates page table
+14,in-notes,How does CSMA/CD handle collisions on an Ethernet network?,computer_networks,module_1,cn_mod1_intro_lecture.pdf,8,Carrier sense detects carrier jam signal broadcasts collision exponential backoff algorithm retries
+15,in-notes,What is the critical section problem in concurrent programming?,operating_systems,module_2,os_mod2_deadlocks_sync.pdf,2,Code segment accessing shared resources where at most one process must execute at any one time
+16,in-notes,What is the purpose of DNS and what transport protocol does it typically use?,computer_networks,module_1,cn_mod1_intro_lecture.pdf,10,Resolves human-readable domain names to IP addresses typically uses UDP port 53 for queries
+17,in-notes,What is the fork() system call in Unix-like operating systems?,operating_systems,module_1,os_mod1_processes_threads.pdf,6,Creates a new child process as a duplicate copy of the calling parent process
+18,in-notes,What is flow control in TCP and how does sliding window implement it?,computer_networks,module_2,cn_mod2_transport_layer.pdf,6,Prevents sender from overwhelming receiver window size advertises receiver available buffer space
+19,in-notes,Explain race conditions and how mutual exclusion prevents them.,operating_systems,module_2,os_mod2_deadlocks_sync.pdf,1,Outcome depends on execution timing mutual exclusion ensures only one thread updates shared state at a time
+20,in-notes,What is the difference between IPv4 and IPv6 address formats?,computer_networks,module_1,cn_mod1_intro_lecture.pdf,4,IPv4 uses 32-bit dotted-decimal addresses IPv6 uses 128-bit hexadecimal colon-separated addresses
+21,out-of-notes,How does Shor's quantum algorithm factor large composite integers in polynomial time?,,,,,Out of notes: Question belongs to Quantum Computing not present in syllabus
+22,out-of-notes,What are the primary stylistic differences between Renaissance and Baroque oil painting?,,,,,Out of notes: Question belongs to Art History not present in syllabus
+23,out-of-notes,How does the Proof-of-Stake Casper consensus mechanism operate on Ethereum?,,,,,Out of notes: Question belongs to Blockchain Systems not covered in course notes
+24,out-of-notes,What are the biological stages of cellular meiosis I versus meiosis II?,,,,,Out of notes: Question belongs to Cell Biology not present in syllabus
+25,out-of-notes,How does CSS Flexbox align-items differ from align-content in a multi-line container?,,,,,Out of notes: Question belongs to Web Frontend Development not covered in CN/OS notes
+26,out-of-notes,What are the thermodynamic assumptions behind the Carnot engine efficiency cycle?,,,,,Out of notes: Question belongs to Classical Thermodynamics not present in syllabus
+27,out-of-notes,What role did Otto von Bismarck play in the 1871 unification of Germany?,,,,,Out of notes: Question belongs to European History not present in syllabus
+28,out-of-notes,What is the chemical mechanism of photosynthesis in C4 plants versus CAM plants?,,,,,Out of notes: Question belongs to Plant Biochemistry not present in syllabus
+29,out-of-notes,How does Black-Scholes formula compute the theoretical price of European call options?,,,,,Out of notes: Question belongs to Financial Engineering not present in syllabus
+30,out-of-notes,What is CRISPR-Cas9 guide RNA sequence design and how does PAM recognition work?,,,,,Out of notes: Question belongs to Molecular Genetics not present in syllabus
+
