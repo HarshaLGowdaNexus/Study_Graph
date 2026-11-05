@@ -8,7 +8,7 @@ Only I can move a task to Done, by writing TEST PASSED Txx. You then update this
 | T01 | Create repo, database and storage project, schema (Data Model sheet), API keys | Done | 2026-11-04 | T01: Initial project skeleton, database migration, and connection check | Skeleton, .env.example, SQL migration with 20 tables & pgvector, connection verified |
 | T02 | Collect REAL data: 2-3 subjects of class notes (typed + scanned), 1 textbook, 3+ previous-year papers | Done | 2026-11-05 | T02: Sample data structure, ground truth CSV templates, and validator | sample-data folder structure, 3 CSV templates (manifest, test_questions, link_labels), check_sample_data.py validator |
 | T03 | Upload + folder structure + storage + job queue with progress | Done | 2026-11-05 | T03: File upload into subject/module folders, Supabase storage, background job queue, and live status UI | Backend upload API, storage service, FastAPI background job, React upload hub with live progress polling, and automated test suite |
-| T04 | Text extraction + vision OCR with page numbers | Not started |  |  |  |
+| T04 | Text extraction + vision OCR with page numbers | Done | 2026-11-05 | T04: Text extraction with direct parser, Gemini Flash vision fallback, and paragraph chunking | pdfplumber + python-pptx direct extraction, Gemini Flash vision fallback for scans/photos, paragraph chunking with page & module tagging, token logging |
 | T05 | Topic extraction (keyword, 1-4 lines, real-world use, source chunks) | Not started |  |  |  |
 | T06 | Review screen (skippable) | Not started |  |  |  |
 | T07 | Embeddings + duplicate merge + aliases | Not started |  |  |  |

@@ -44,5 +44,11 @@ class Settings:
     # Vector Configuration (Decision D10)
     VECTOR_DIMENSION: int = 768
 
+    # Ingestion & Extraction Settings (Task T04, Decisions D08, D15)
+    EXTRACTION_MIN_TEXT_CHARS: int = int(os.getenv("EXTRACTION_MIN_TEXT_CHARS", "50"))
+    # 0 means process all pages; set a positive integer to cap test runs
+    EXTRACTION_MAX_TEST_PAGES: int = int(os.getenv("EXTRACTION_MAX_TEST_PAGES", "0"))
+    GEMINI_VISION_MODEL: str = os.getenv("GEMINI_VISION_MODEL", "gemini-3.5-flash")
+
 
 settings = Settings()

@@ -112,6 +112,55 @@ class StorageService:
             local_target.write_bytes(file_bytes)
             return f"fallback://{self.bucket}/{storage_path}"
 
+    async def download_file(self, storage_uri: str) -> bytes:
+        """
+        Downloads binary file data given a storage URI (supabase://, fallback://, local://, or relative path).
+        Returns binary bytes of the file.
+        """
+        # Parse bucket and subpath from URI
+        cleaned = storage_uri
+        for prefix in ("supabase://", "fallback://", "local://"):
+            if cleaned.startswith(prefix):
+                cleaned = cleaned[len(prefix):]
+                break
+
+        # Remove bucket name if it's the first component
+        if cleaned.startswith(f"{self.bucket}/"):
+            subpath = cleaned[len(f"{self.bucket}/"):]
+        else:
+            subpath = cleaned
+
+        # 1. Check local cache first (works offline and for fallback/local files)
+        local_target = Path(settings.ROOT_DIR) / ".storage_cache" / self.bucket / subpath
+        if local_target.exists():
+            return local_target.read_bytes()
+
+        # 2. Try fetching from Supabase Storage cloud
+        if settings.SUPABASE_URL and self.auth_key:
+            download_url = f"{self.base_url}/object/{self.bucket}/{subpath}"
+            headers = {
+                "Authorization": f"Bearer {self.auth_key}",
+                "apikey": self.auth_key,
+            }
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    res = await client.get(download_url, headers=headers)
+                    if res.status_code == 200:
+                        # Cache locally for fast future reads
+                        local_target.parent.mkdir(parents=True, exist_ok=True)
+                        local_target.write_bytes(res.content)
+                        return res.content
+            except Exception:
+                pass
+
+        # 3. Final check: if subpath itself is an absolute or relative path on disk
+        direct_path = Path(storage_uri)
+        if direct_path.exists() and direct_path.is_file():
+            return direct_path.read_bytes()
+
+        raise FileNotFoundError(f"Could not locate or download file from storage: {storage_uri}")
+
 
 storage_service = StorageService()
+
 
