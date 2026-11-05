@@ -78,3 +78,96 @@ class TopicExtractionResponse(BaseModel):
         description="List of extracted topic cards, or empty if no academic concepts were present.",
     )
 
+
+# ------------------------------------------------------------------------------
+# Schemas for T06: Topic Review Screen
+# ------------------------------------------------------------------------------
+class TopicUpdateRequest(BaseModel):
+    """
+    Payload for updating an individual topic's content or review state (T06).
+    """
+    keyword: Optional[str] = Field(
+        default=None,
+        description="Updated academic concept name.",
+    )
+    explanation: Optional[str] = Field(
+        default=None,
+        description="Updated concept explanation (strictly at most 4 lines).",
+    )
+    real_world_use: Optional[str] = Field(
+        default=None,
+        description="Updated industry/practical application.",
+    )
+    reviewed: Optional[bool] = Field(
+        default=None,
+        description="Whether the topic has been reviewed and approved by the student.",
+    )
+
+    @field_validator("keyword")
+    @classmethod
+    def validate_keyword(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            clean = v.strip()
+            if not clean:
+                raise ValueError("Keyword cannot be empty.")
+            return clean
+        return v
+
+    @field_validator("explanation")
+    @classmethod
+    def validate_explanation(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            clean = v.strip()
+            if not clean:
+                raise ValueError("Explanation cannot be empty.")
+            lines = [line.strip() for line in clean.splitlines() if line.strip()]
+            if len(lines) > 4:
+                raise ValueError(
+                    f"Topic explanation exceeds 4 lines (found {len(lines)} lines). "
+                    "Rulebook Section 13 Rule 3 mandates at most 4 lines."
+                )
+            if len(clean) > 1000:
+                raise ValueError("Topic explanation exceeds maximum character length of 1000.")
+            return clean
+        return v
+
+
+class TopicReviewItem(BaseModel):
+    """
+    Topic card representation formatted for the Student Review Screen (T06).
+    """
+    id: str
+    subject_id: str
+    keyword: str
+    explanation: str
+    real_world_use: Optional[str] = None
+    module_no: Optional[int] = None
+    reviewed: bool = False
+    source_pages: List[int] = Field(default_factory=list)
+    chunk_count: int = 0
+
+
+class TopicListResponse(BaseModel):
+    """
+    List of topics associated with an uploaded document for student review.
+    """
+    document_id: str
+    filename: str
+    subject_id: str
+    subject_name: str
+    topics: List[TopicReviewItem]
+    total_count: int
+    reviewed_count: int
+    unreviewed_count: int
+
+
+class BulkReviewActionResponse(BaseModel):
+    """
+    Response returned after bulk approving or skipping review for a document.
+    """
+    document_id: str
+    updated_count: int
+    status: str  # "approved" | "skipped"
+    message: str
+
+

@@ -41,6 +41,8 @@ class DocumentStatusResponse(BaseModel):
     error_message: Optional[str] = None
     storage_path: Optional[str] = None
     uploaded_at: Optional[str] = None
+    topic_count: int = 0
+    unreviewed_count: int = 0
 
 
 class UploadResponse(BaseModel):
@@ -204,10 +206,23 @@ async def get_document_status(
     with get_db_cursor() as cursor:
         cursor.execute(
             """
-            SELECT d.id, d.filename, d.status, d.module_no, d.error_message, d.storage_path, d.uploaded_at
+            SELECT 
+                d.id, 
+                d.filename, 
+                d.status, 
+                d.module_no, 
+                d.error_message, 
+                d.storage_path, 
+                d.uploaded_at,
+                COUNT(DISTINCT ts.topic_id) as topic_count,
+                COUNT(DISTINCT CASE WHEN t.reviewed = FALSE THEN t.id END) as unreviewed_count
             FROM documents d
             JOIN subjects s ON d.subject_id = s.id
-            WHERE d.id = %s AND s.user_id = %s;
+            LEFT JOIN chunks c ON c.document_id = d.id
+            LEFT JOIN topic_sources ts ON ts.chunk_id = c.id
+            LEFT JOIN topics t ON t.id = ts.topic_id
+            WHERE d.id = %s AND s.user_id = %s
+            GROUP BY d.id, d.filename, d.status, d.module_no, d.error_message, d.storage_path, d.uploaded_at;
             """,
             (document_id, current_user.id),
         )
@@ -226,6 +241,8 @@ async def get_document_status(
             error_message=row[4],
             storage_path=row[5],
             uploaded_at=str(row[6]) if row[6] else None,
+            topic_count=row[7] or 0,
+            unreviewed_count=row[8] or 0,
         )
 
 
@@ -236,14 +253,28 @@ async def list_subject_documents(
 ):
     """
     Lists all documents inside a specific subject folder owned by the student.
+    Includes live topic and review counts.
     """
     with get_db_cursor() as cursor:
         cursor.execute(
             """
-            SELECT d.id, d.filename, d.status, d.module_no, d.error_message, d.storage_path, d.uploaded_at
+            SELECT 
+                d.id, 
+                d.filename, 
+                d.status, 
+                d.module_no, 
+                d.error_message, 
+                d.storage_path, 
+                d.uploaded_at,
+                COUNT(DISTINCT ts.topic_id) as topic_count,
+                COUNT(DISTINCT CASE WHEN t.reviewed = FALSE THEN t.id END) as unreviewed_count
             FROM documents d
             JOIN subjects s ON d.subject_id = s.id
+            LEFT JOIN chunks c ON c.document_id = d.id
+            LEFT JOIN topic_sources ts ON ts.chunk_id = c.id
+            LEFT JOIN topics t ON t.id = ts.topic_id
             WHERE s.id = %s AND s.user_id = %s
+            GROUP BY d.id, d.filename, d.status, d.module_no, d.error_message, d.storage_path, d.uploaded_at
             ORDER BY d.uploaded_at DESC;
             """,
             (subject_id, current_user.id),
@@ -258,6 +289,8 @@ async def list_subject_documents(
                 error_message=row[4],
                 storage_path=row[5],
                 uploaded_at=str(row[6]) if row[6] else None,
+                topic_count=row[7] or 0,
+                unreviewed_count=row[8] or 0,
             )
             for row in rows
         ]

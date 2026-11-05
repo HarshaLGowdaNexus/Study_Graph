@@ -13,6 +13,7 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
+import { TopicReviewModal } from "../review/TopicReviewModal";
 
 // Student Profiles for testing user isolation (Privacy Rule 11)
 const DEMO_USERS = [
@@ -37,6 +38,8 @@ interface DocumentItem {
   error_message?: string;
   storage_path?: string;
   uploaded_at?: string;
+  topic_count?: number;
+  unreviewed_count?: number;
 }
 
 export const UploadPage: React.FC = () => {
@@ -62,6 +65,9 @@ export const UploadPage: React.FC = () => {
   // Documents and tracking
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Review Screen Modal state (T06)
+  const [reviewingDoc, setReviewingDoc] = useState<DocumentItem | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -674,10 +680,30 @@ export const UploadPage: React.FC = () => {
                       )}
 
                       {doc.status === "done" && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Done (Ready for linking)
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Done
+                          </span>
+
+                          {doc.topic_count !== undefined && doc.topic_count > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                              <Sparkles className="w-3 h-3 text-indigo-500" />
+                              {doc.topic_count} Topics
+                              {doc.unreviewed_count ? ` (${doc.unreviewed_count} unreviewed)` : " (All reviewed)"}
+                            </span>
+                          ) : null}
+
+                          <button
+                            type="button"
+                            onClick={() => setReviewingDoc(doc)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-md transition-colors cursor-pointer"
+                            title="Review extracted topics from this document"
+                          >
+                            <Sparkles className="w-3 h-3 text-indigo-600" />
+                            Review Topics
+                          </button>
+                        </div>
                       )}
 
                       {doc.status === "failed" && (
@@ -704,6 +730,24 @@ export const UploadPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Review Screen Modal (T06) */}
+      {reviewingDoc && (
+        <TopicReviewModal
+          isOpen={!!reviewingDoc}
+          documentId={reviewingDoc.id}
+          documentTitle={reviewingDoc.filename}
+          moduleNo={reviewingDoc.module_no}
+          activeUserId={activeUser.id}
+          activeUserEmail={activeUser.email}
+          onClose={() => setReviewingDoc(null)}
+          onTopicsUpdated={() => {
+            if (selectedSubjectId) {
+              loadDocumentsForSubject(selectedSubjectId, activeUser.id, activeUser.email);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
