@@ -24,6 +24,7 @@ dist-ssr/
 *.log
 *.sqlite3
 *.db
+.storage_cache/
 
 # OS files
 .DS_Store

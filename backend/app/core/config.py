@@ -16,6 +16,8 @@ load_dotenv(dotenv_path=ENV_PATH)
 
 
 class Settings:
+    ROOT_DIR: Path = ROOT_DIR
+
     # Supabase Database URL
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
@@ -23,6 +25,14 @@ class Settings:
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
     SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
+
+    # Storage Settings (Decision D06)
+    SUPABASE_STORAGE_BUCKET: str = os.getenv("SUPABASE_STORAGE_BUCKET", "study-documents")
+
+    # Upload Constraints (Task T03)
+    MAX_FILE_SIZE_MB: int = int(os.getenv("MAX_FILE_SIZE_MB", "50"))
+    ALLOWED_EXTENSIONS: tuple[str, ...] = (".pdf", ".ppt", ".pptx", ".png", ".jpg", ".jpeg")
 
     # Google Gemini AI Key
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
@@ -36,4 +46,3 @@ class Settings:
 
 
 settings = Settings()
-
