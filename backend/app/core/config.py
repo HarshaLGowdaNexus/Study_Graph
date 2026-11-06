@@ -77,5 +77,12 @@ class Settings:
     # Hard cap on candidates kept per topic to bound downstream LLM judge costs (R07)
     CANDIDATE_MAX_PER_TOPIC: int = int(os.getenv("CANDIDATE_MAX_PER_TOPIC", "8"))
 
+    # LLM Link Judge Settings (Task T09, Decisions D05, D09, RULEBOOK 13.1, 13.8)
+    LINK_JUDGE_MODEL: str = os.getenv("LINK_JUDGE_MODEL", "gemini-3.5-flash-lite")
+    LINK_JUDGE_TEMPERATURE: float = float(os.getenv("LINK_JUDGE_TEMPERATURE", "0.1"))
+    # Cross-subject links need strength >= 3 to be visible by default (Risk R19, Rule 13.8)
+    CROSS_SUBJECT_MIN_VISIBLE_STRENGTH: int = int(os.getenv("CROSS_SUBJECT_MIN_VISIBLE_STRENGTH", "3"))
+    LINK_JUDGE_MAX_CANDIDATES_PER_BATCH: int = int(os.getenv("LINK_JUDGE_MAX_CANDIDATES_PER_BATCH", "10"))
+
 
 settings = Settings()
