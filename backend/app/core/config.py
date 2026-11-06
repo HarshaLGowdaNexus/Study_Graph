@@ -67,5 +67,15 @@ class Settings:
     DEDUPE_CONFIRMATION_MODEL: str = os.getenv("DEDUPE_CONFIRMATION_MODEL", "gemini-3.5-flash-lite")
     DEDUPE_CONFIRMATION_TEMPERATURE: float = float(os.getenv("DEDUPE_CONFIRMATION_TEMPERATURE", "0.0"))
 
+    # Link Candidate Finder Settings (Task T08, Decisions D05, D10)
+    # k: maximum raw nearest neighbors queried per scope via pgvector HNSW index
+    CANDIDATE_K_NEIGHBORS: int = int(os.getenv("CANDIDATE_K_NEIGHBORS", "10"))
+    # Minimum cosine similarity for same-subject topics (empirically calibrated: 0.55 catches module-related topics)
+    CANDIDATE_SAME_SUBJECT_THRESHOLD: float = float(os.getenv("CANDIDATE_SAME_SUBJECT_THRESHOLD", "0.55"))
+    # Stricter minimum cosine similarity for cross-subject topics (empirically calibrated: 0.68 prevents forced links per R19)
+    CANDIDATE_CROSS_SUBJECT_THRESHOLD: float = float(os.getenv("CANDIDATE_CROSS_SUBJECT_THRESHOLD", "0.68"))
+    # Hard cap on candidates kept per topic to bound downstream LLM judge costs (R07)
+    CANDIDATE_MAX_PER_TOPIC: int = int(os.getenv("CANDIDATE_MAX_PER_TOPIC", "8"))
+
 
 settings = Settings()
