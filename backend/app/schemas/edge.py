@@ -83,7 +83,7 @@ class EdgeEvidenceResponse(BaseModel):
     """Schema for returning evidence associated with an edge."""
     id: Optional[UUID] = None
     edge_id: UUID
-    chunk_id: UUID
+    chunk_id: Optional[UUID] = None
     snippet: str
 
     model_config = ConfigDict(from_attributes=True)

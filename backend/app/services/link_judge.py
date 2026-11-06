@@ -329,7 +329,17 @@ TASK:
         cursor.execute(check_query, (str(topic_a_id), str(topic_b_id), str(topic_b_id), str(topic_a_id)))
         existing_edge = cursor.fetchone()
 
-        if existing_edge and (existing_edge.get("locked") or existing_edge.get("status") == "deleted"):
+        is_locked = False
+        is_deleted = False
+        if existing_edge:
+            if hasattr(existing_edge, "get"):
+                is_locked = bool(existing_edge.get("locked"))
+                is_deleted = (existing_edge.get("status") == "deleted")
+            else:
+                is_locked = bool(existing_edge[1])
+                is_deleted = (existing_edge[2] == "deleted")
+
+        if existing_edge and (is_locked or is_deleted):
             logger.info(f"[Link Judge] Skipping pair ({topic_a_id}, {topic_b_id}) because edge is locked or deleted by user.")
             if candidate_id:
                 cursor.execute("UPDATE link_candidates SET status = 'dismissed' WHERE id = %s;", (str(candidate_id),))
@@ -479,14 +489,58 @@ TASK:
             is_visible = True
 
         # Step 8: Persist approved edge & evidence in database
-        # Avoid duplicate edge creation if one already exists
-        if existing_edge:
-            edge_id = existing_edge["id"]
+        # CRITICAL LOCK CHECK BEFORE WRITE (Rule 13.2 & Risk R16):
+        # We re-verify edge status right at write-time to ensure no concurrent user edit/deletion
+        # is overwritten by automated background processing.
+        write_check_query = """
+            SELECT id, locked, status FROM edges
+            WHERE (topic_a = %s AND topic_b = %s) OR (topic_a = %s AND topic_b = %s);
+        """
+        cursor.execute(write_check_query, (str(topic_a_id), str(topic_b_id), str(topic_b_id), str(topic_a_id)))
+        edge_at_write_time = cursor.fetchone()
+
+        write_is_locked = False
+        write_is_deleted = False
+        write_edge_id = None
+        if edge_at_write_time:
+            if hasattr(edge_at_write_time, "get"):
+                write_is_locked = bool(edge_at_write_time.get("locked"))
+                write_is_deleted = (edge_at_write_time.get("status") == "deleted")
+                write_edge_id = edge_at_write_time.get("id")
+            else:
+                write_edge_id = edge_at_write_time[0]
+                write_is_locked = bool(edge_at_write_time[1])
+                write_is_deleted = (edge_at_write_time[2] == "deleted")
+
+        if edge_at_write_time and (write_is_locked or write_is_deleted):
+            logger.info(
+                f"[Link Judge] Overwrite blocked: Edge ({topic_a['keyword']} <-> {topic_b['keyword']}) "
+                f"is locked={write_is_locked}, status='{('deleted' if write_is_deleted else 'locked')}'. User edits are sacred."
+            )
+            if candidate_id:
+                cursor.execute("UPDATE link_candidates SET status = 'dismissed' WHERE id = %s;", (str(candidate_id),))
+            return JudgeCandidateResult(
+                candidate_id=candidate_id,
+                topic_a_id=topic_a_id,
+                topic_b_id=topic_b_id,
+                topic_a_keyword=topic_a["keyword"],
+                topic_b_keyword=topic_b["keyword"],
+                verdict="reject",
+                rejection_reason="Edge is locked or deleted by user (Rule 13.2).",
+                scope=scope,  # type: ignore[arg-type]
+                is_visible=False,
+                snippets_verified=False,
+            ), token_usage
+
+        if edge_at_write_time:
+            edge_id = write_edge_id
+            # Atomic guarded update: only updates if locked is still FALSE and status != 'deleted'
             update_edge_query = """
                 UPDATE edges
                 SET type = %s, reason = %s, industry_example = %s, strength = %s,
                     scope = %s, status = 'auto', locked = FALSE, is_visible = %s, graph_version = 1
-                WHERE id = %s;
+                WHERE id = %s AND locked = FALSE AND status != 'deleted'
+                RETURNING id;
             """
             cursor.execute(
                 update_edge_query,
@@ -500,6 +554,24 @@ TASK:
                     edge_id,
                 ),
             )
+            updated_row = cursor.fetchone()
+            if not updated_row:
+                logger.info(f"[Link Judge] Edge {edge_id} was locked during update attempt; write safely abandoned.")
+                if candidate_id:
+                    cursor.execute("UPDATE link_candidates SET status = 'dismissed' WHERE id = %s;", (str(candidate_id),))
+                return JudgeCandidateResult(
+                    candidate_id=candidate_id,
+                    topic_a_id=topic_a_id,
+                    topic_b_id=topic_b_id,
+                    topic_a_keyword=topic_a["keyword"],
+                    topic_b_keyword=topic_b["keyword"],
+                    verdict="reject",
+                    rejection_reason="Edge was locked by user prior to write (Rule 13.2).",
+                    scope=scope,  # type: ignore[arg-type]
+                    is_visible=False,
+                    snippets_verified=False,
+                ), token_usage
+
             # Remove old evidence to replace with fresh verified snippets
             cursor.execute("DELETE FROM edge_evidence WHERE edge_id = %s;", (edge_id,))
         else:
@@ -508,6 +580,15 @@ TASK:
                     topic_a, topic_b, type, reason, industry_example,
                     strength, scope, status, locked, is_visible, graph_version
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'auto', FALSE, %s, 1)
+                ON CONFLICT (LEAST(topic_a, topic_b), GREATEST(topic_a, topic_b))
+                DO UPDATE SET
+                    type = EXCLUDED.type,
+                    reason = EXCLUDED.reason,
+                    industry_example = EXCLUDED.industry_example,
+                    strength = EXCLUDED.strength,
+                    scope = EXCLUDED.scope,
+                    is_visible = EXCLUDED.is_visible
+                WHERE edges.locked = FALSE AND edges.status != 'deleted'
                 RETURNING id;
             """
             cursor.execute(
@@ -523,7 +604,25 @@ TASK:
                     is_visible,
                 ),
             )
-            edge_id = cursor.fetchone()["id"]
+            inserted_row = cursor.fetchone()
+            if not inserted_row:
+                logger.info(f"[Link Judge] Insert avoided due to pre-existing locked edge on canonical pair.")
+                if candidate_id:
+                    cursor.execute("UPDATE link_candidates SET status = 'dismissed' WHERE id = %s;", (str(candidate_id),))
+                return JudgeCandidateResult(
+                    candidate_id=candidate_id,
+                    topic_a_id=topic_a_id,
+                    topic_b_id=topic_b_id,
+                    topic_a_keyword=topic_a["keyword"],
+                    topic_b_keyword=topic_b["keyword"],
+                    verdict="reject",
+                    rejection_reason="Edge pair is locked by user (Rule 13.2).",
+                    scope=scope,  # type: ignore[arg-type]
+                    is_visible=False,
+                    snippets_verified=False,
+                ), token_usage
+
+            edge_id = inserted_row["id"]
 
         # Insert verified snippets into edge_evidence
         insert_evidence_query = """

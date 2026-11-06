@@ -23,6 +23,28 @@ from backend.app.schemas.topic import (
 router = APIRouter(tags=["Topics"])
 
 
+@router.get("/topics", summary="List all user topics for link creation")
+def list_topics(
+    subject_id: Optional[str] = None,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Lists available topics for dropdown selection in manual linking (Rule 11 user isolation)."""
+    with get_db_cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        query = """
+            SELECT t.id, t.keyword, t.subject_id, s.name as subject_name
+            FROM topics t
+            JOIN subjects s ON s.id = t.subject_id
+            WHERE s.user_id = %s
+        """
+        params = [current_user.id]
+        if subject_id:
+            query += " AND t.subject_id = %s"
+            params.append(subject_id)
+        query += " ORDER BY t.keyword ASC LIMIT 300;"
+        cur.execute(query, tuple(params))
+        return cur.fetchall() or []
+
+
 @router.get("/documents/{document_id}/topics", response_model=TopicListResponse)
 async def get_document_topics(
     document_id: str,
