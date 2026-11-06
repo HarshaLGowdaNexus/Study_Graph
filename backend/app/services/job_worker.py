@@ -11,6 +11,8 @@ import logging
 from typing import Optional
 
 from backend.app.database import get_db_cursor
+from backend.app.services.dedupe_service import DedupeService
+from backend.app.services.embedding_service import EmbeddingService
 from backend.app.services.extractor import extractor_service
 from backend.app.services.storage import storage_service
 from backend.app.services.topic_extractor import topic_extractor_service
@@ -55,7 +57,7 @@ async def process_document_job(document_id: str, user_id: str) -> None:
         with get_db_cursor() as cursor:
             cursor.execute(
                 """
-                SELECT filename, module_no, storage_path, source_kind
+                SELECT subject_id, filename, module_no, storage_path, source_kind
                 FROM documents
                 WHERE id = %s;
                 """,
@@ -66,7 +68,7 @@ async def process_document_job(document_id: str, user_id: str) -> None:
         if not doc_row:
             raise ValueError(f"Document with id {document_id} not found in database.")
 
-        filename, module_no, storage_path, source_kind = doc_row
+        subject_id, filename, module_no, storage_path, source_kind = doc_row
         if not storage_path:
             raise ValueError(f"Document {document_id} has no storage_path recorded.")
 
@@ -103,7 +105,16 @@ async def process_document_job(document_id: str, user_id: str) -> None:
                     (document_id, chunk.page, chunk.text, module_no, chunk.method),
                 )
 
-        # Step 6: Extract topics from chunks (Task T05, Pipeline Step 6)
+        # Step 6: Generate embeddings for chunks (Task T07, Decision D10)
+        logger.info(f"[Job Worker] Generating embeddings for chunks of document {document_id}")
+        embedding_service = EmbeddingService()
+        try:
+            chunks_embedded = embedding_service.embed_unembedded_chunks(document_id)
+            logger.info(f"[Job Worker] Generated embeddings for {chunks_embedded} chunks.")
+        except Exception as emb_err:
+            logger.warning(f"[Job Worker] Chunk embedding encountered error (non-fatal): {emb_err}")
+
+        # Step 7: Extract topics from chunks (Task T05, Pipeline Step 6)
         logger.info(f"[Job Worker] Starting topic extraction for document {document_id}")
         topic_result = topic_extractor_service.process_document_topics(document_id)
         logger.info(
@@ -112,7 +123,22 @@ async def process_document_job(document_id: str, user_id: str) -> None:
             f"tokens used: {topic_result.token_usage['total_tokens']}"
         )
 
-        # Step 7: Mark status as 'done'
+        # Step 8: Generate embeddings for topics & run subject deduplication (Task T07, Pipeline Step 8)
+        if subject_id:
+            try:
+                topics_embedded = embedding_service.embed_unembedded_topics(subject_id)
+                logger.info(f"[Job Worker] Generated embeddings for {topics_embedded} topics in subject {subject_id}")
+                
+                dedupe_service = DedupeService()
+                dedupe_res = dedupe_service.run_auto_deduplication(subject_id)
+                logger.info(
+                    f"[Job Worker] Auto-deduplication complete for subject {subject_id}: "
+                    f"{dedupe_res.merges_executed} merges executed across {dedupe_res.candidates_found} candidates."
+                )
+            except Exception as ded_err:
+                logger.warning(f"[Job Worker] Topic embedding/deduplication encountered error (non-fatal): {ded_err}")
+
+        # Step 9: Mark status as 'done'
         update_document_status(document_id, "done")
         logger.info(f"[Job Worker] Document {document_id} processing complete: status -> 'done'")
 

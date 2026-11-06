@@ -5,6 +5,7 @@ Relies on Decision D04: Python with FastAPI.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from backend.app.api.routes.dedupe import router as dedupe_router
 from backend.app.api.routes.topics import router as topics_router
 from backend.app.api.routes.upload import router as upload_router
 from backend.app.core.config import settings
@@ -34,6 +35,7 @@ app.add_middleware(
 # Register route modules
 app.include_router(upload_router, prefix="/api")
 app.include_router(topics_router, prefix="/api")
+app.include_router(dedupe_router, prefix="/api")
 
 
 @app.get("/", tags=["Health"])

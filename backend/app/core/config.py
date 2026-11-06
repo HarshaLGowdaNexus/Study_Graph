@@ -55,5 +55,17 @@ class Settings:
     TOPIC_EXTRACTION_TEMPERATURE: float = float(os.getenv("TOPIC_EXTRACTION_TEMPERATURE", "0.1"))
     MAX_TOPICS_PER_PAGE: int = int(os.getenv("MAX_TOPICS_PER_PAGE", "4"))
 
+    # Embedding Settings (Task T07, Decision D10)
+    # Default model is gemini-embedding-001 with output_dimensionality=768 (fits vector(768))
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
+    EMBEDDING_BATCH_SIZE: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "32"))
+
+    # Duplicate Topic Detection Settings (Task T07, Decisions D09, D10)
+    # Cosine similarity threshold (0.0 to 1.0) above which same-subject topics are flagged as candidates
+    # Default 0.85: higher threshold prevents false merges; lower threshold catches looser phrasing
+    DEDUPE_SIMILARITY_THRESHOLD: float = float(os.getenv("DEDUPE_SIMILARITY_THRESHOLD", "0.85"))
+    DEDUPE_CONFIRMATION_MODEL: str = os.getenv("DEDUPE_CONFIRMATION_MODEL", "gemini-3.5-flash-lite")
+    DEDUPE_CONFIRMATION_TEMPERATURE: float = float(os.getenv("DEDUPE_CONFIRMATION_TEMPERATURE", "0.0"))
+
 
 settings = Settings()

@@ -27,14 +27,15 @@ def get_connection() -> PgConnection:
 
 
 @contextmanager
-def get_db_cursor() -> Generator:
+def get_db_cursor(*args, commit: bool = True, **kwargs) -> Generator:
     """
     Context manager providing a database cursor that automatically commits
     or rolls back transactions and closes cleanly.
+    Accepts optional cursor_factory (e.g. psycopg2.extras.RealDictCursor).
     """
     conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with conn.cursor(*args, **kwargs) as cursor:
             yield cursor
         conn.commit()
     except Exception:

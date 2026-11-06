@@ -493,10 +493,10 @@ export const UploadPage: React.FC = () => {
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors duration-150 flex flex-col items-center justify-center space-y-3 relative ${dragActive
-                  ? "border-indigo-500 bg-indigo-50"
-                  : selectedFile
-                    ? "border-emerald-500 bg-emerald-50/50"
-                    : "border-slate-300 hover:border-indigo-400 bg-slate-50/50"
+                ? "border-indigo-500 bg-indigo-50"
+                : selectedFile
+                  ? "border-emerald-500 bg-emerald-50/50"
+                  : "border-slate-300 hover:border-indigo-400 bg-slate-50/50"
                 }`}
             >
               <input
@@ -586,8 +586,8 @@ export const UploadPage: React.FC = () => {
               disabled={!canUpload}
               onClick={handleUpload}
               className={`w-full py-3 px-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all ${canUpload
-                  ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg cursor-pointer"
-                  : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md hover:shadow-lg cursor-pointer"
+                : "bg-slate-200 text-slate-500 cursor-not-allowed"
                 }`}
             >
               {isUploading ? (
