@@ -105,27 +105,32 @@ def list_edges(
             cur.execute(query, tuple(params))
             edge_rows = cur.fetchall() or []
 
-            results: List[EdgeDetailResponse] = []
-            for row in edge_rows:
-                edge_id = row["id"]
+            # Bulk fetch evidence in 1 single fast query to eliminate N+1 network latency
+            edge_ids = [str(row["id"]) for row in edge_rows]
+            evidence_map = {eid: [] for eid in edge_ids}
+
+            if edge_ids:
                 evidence_query = """
                     SELECT id, edge_id, chunk_id, snippet
                     FROM edge_evidence
-                    WHERE edge_id = %s;
+                    WHERE edge_id = ANY(%s::uuid[]);
                 """
-                cur.execute(evidence_query, (str(edge_id),))
-                evidence_rows = cur.fetchall() or []
+                cur.execute(evidence_query, (edge_ids,))
+                for ev in cur.fetchall() or []:
+                    eid_str = str(ev["edge_id"])
+                    if eid_str in evidence_map:
+                        evidence_map[eid_str].append(
+                            EdgeEvidenceResponse(
+                                id=ev.get("id"),
+                                edge_id=ev["edge_id"],
+                                chunk_id=ev.get("chunk_id"),
+                                snippet=ev["snippet"],
+                            )
+                        )
 
-                evidence_list = [
-                    EdgeEvidenceResponse(
-                        id=ev.get("id"),
-                        edge_id=ev["edge_id"],
-                        chunk_id=ev.get("chunk_id"),
-                        snippet=ev["snippet"],
-                    )
-                    for ev in evidence_rows
-                ]
-
+            results: List[EdgeDetailResponse] = []
+            for row in edge_rows:
+                edge_id_str = str(row["id"])
                 results.append(
                     EdgeDetailResponse(
                         id=row["id"],
@@ -144,7 +149,7 @@ def list_edges(
                         locked=row["locked"],
                         is_visible=row["is_visible"],
                         graph_version=row["graph_version"],
-                        evidence=evidence_list,
+                        evidence=evidence_map.get(edge_id_str, []),
                     )
                 )
 

@@ -107,16 +107,19 @@ export const LinkManager: React.FC = () => {
   // Fetch edges
   const fetchEdges = async () => {
     setLoading(true);
-    setError(null);
     try {
       let url = `/api/edges?include_deleted=${includeDeleted}&locked_only=${lockedOnly}`;
       if (scopeFilter !== "all") {
         url += `&scope=${scopeFilter}`;
       }
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.detail || `Server returned ${res.status}`);
+      }
       const data: EdgeItem[] = await res.json();
       setEdges(data);
+      setError(null); // Clear error on successful fetch
     } catch (err: any) {
       setError(`Failed to load links: ${err.message}`);
     } finally {

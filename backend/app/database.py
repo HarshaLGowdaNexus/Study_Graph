@@ -3,17 +3,21 @@ Database connection utilities for StudyGraph.
 Relies on Decision D05: PostgreSQL on Supabase.
 """
 
+import time
+import logging
 from contextlib import contextmanager
 from typing import Generator
 import psycopg2
 from psycopg2.extensions import connection as PgConnection
 from backend.app.core.config import settings
 
+logger = logging.getLogger(__name__)
 
-def get_connection() -> PgConnection:
+
+def get_connection(retries: int = 3, delay: float = 0.5) -> PgConnection:
     """
-    Establish and return a direct connection to the PostgreSQL database.
-    Raises ValueError with a helpful message if DATABASE_URL is not configured.
+    Establish and return a direct connection to the PostgreSQL database on Supabase.
+    Includes retry logic with exponential backoff to absorb transient Wi-Fi drops or pooler latency.
     """
     if not settings.DATABASE_URL or "your_password_here" in settings.DATABASE_URL:
         raise ValueError(
@@ -21,9 +25,19 @@ def get_connection() -> PgConnection:
             "Please copy .env.example to .env and fill in your Supabase connection string."
         )
 
-    # Clean connection string if needed (e.g. handle sslmode for Supabase)
     db_url = settings.DATABASE_URL
-    return psycopg2.connect(db_url)
+    last_error = None
+
+    for attempt in range(1, retries + 1):
+        try:
+            return psycopg2.connect(db_url, connect_timeout=10)
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Database connection attempt {attempt}/{retries} failed: {e}")
+            if attempt < retries:
+                time.sleep(delay * attempt)
+
+    raise last_error
 
 
 @contextmanager
