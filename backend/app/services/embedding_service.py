@@ -65,6 +65,7 @@ class EmbeddingService:
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
         Generates 768-dim embeddings for a list of text strings in batches.
+        Includes exponential backoff for Google Free Tier rate limits (429).
         """
         if not texts:
             return []
@@ -77,28 +78,49 @@ class EmbeddingService:
 
         for i in range(0, len(texts), self.batch_size):
             batch = texts[i : i + self.batch_size]
-            try:
-                # Sanitize empty or whitespace-only texts to avoid API failure
-                clean_batch = [t.strip() if t.strip() else "empty text" for t in batch]
+            clean_batch = [t.strip() if t.strip() else "empty text" for t in batch]
 
-                response = client.models.embed_content(
-                    model=self.model_name,
-                    contents=clean_batch,
-                    config=config,
-                )
+            batch_success = False
+            last_err = None
 
-                for item in response.embeddings:
-                    values = list(item.values)
-                    # Verify dimension
-                    if len(values) != self.vector_dim:
+            for attempt in range(1, 5):
+                try:
+                    response = client.models.embed_content(
+                        model=self.model_name,
+                        contents=clean_batch,
+                        config=config,
+                    )
+
+                    for item in response.embeddings:
+                        values = list(item.values)
+                        if len(values) != self.vector_dim:
+                            logger.warning(
+                                f"Embedding dimension mismatch: expected {self.vector_dim}, got {len(values)}"
+                            )
+                        all_embeddings.append(values)
+
+                    batch_success = True
+                    break
+
+                except Exception as e:
+                    last_err = e
+                    err_str = str(e)
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        backoff = attempt * 5
                         logger.warning(
-                            f"Embedding dimension mismatch: expected {self.vector_dim}, got {len(values)}"
+                            f"[Embedding Service] Rate limit 429 hit for batch {i}. "
+                            f"Attempt {attempt}/4. Sleeping {backoff}s..."
                         )
-                    all_embeddings.append(values)
+                        time.sleep(backoff)
+                    else:
+                        logger.warning(f"[Embedding Service] Attempt {attempt} failed: {e}. Retrying in 2s...")
+                        time.sleep(2)
 
-            except Exception as e:
-                logger.error(f"Error generating embeddings for batch {i}-{i+len(batch)}: {e}")
-                raise e
+            if not batch_success:
+                logger.error(f"Failed to embed batch {i}-{i+len(batch)}: {last_err}")
+                raise last_err
+
+            time.sleep(0.3)
 
         return all_embeddings
 
@@ -110,7 +132,7 @@ class EmbeddingService:
     def embed_unembedded_chunks(self, document_id: Optional[UUID] = None) -> int:
         """
         Finds all chunks with NULL embedding (optionally filtered by document_id),
-        generates their embeddings, and writes them to the database.
+        generates their embeddings in batches, and immediately saves each batch.
         Returns the count of chunks updated.
         """
         with get_db_cursor(cursor_factory=RealDictCursor) as cursor:
@@ -128,23 +150,31 @@ class EmbeddingService:
             logger.info("No unembedded chunks found.")
             return 0
 
-        chunk_ids = [r["id"] for r in rows]
-        texts = [r["text"] for r in rows]
-        logger.info(f"Generating embeddings for {len(chunk_ids)} chunks...")
+        logger.info(f"Found {len(rows)} unembedded chunks. Starting incremental batch embedding...")
+        total_embedded = 0
+        batch_size = 20  # Paced batching
 
-        embeddings = self.generate_embeddings(texts)
+        for i in range(0, len(rows), batch_size):
+            batch_rows = rows[i : i + batch_size]
+            chunk_ids = [r["id"] for r in batch_rows]
+            texts = [r["text"] for r in batch_rows]
 
-        with get_db_cursor() as cursor:
-            for chunk_id, emb in zip(chunk_ids, embeddings):
-                # Format float list as vector literal e.g. '[0.1, 0.2, ...]'
-                emb_str = f"[{','.join(f'{x:.6f}' for x in emb)}]"
-                cursor.execute(
-                    "UPDATE chunks SET embedding = %s::vector WHERE id = %s",
-                    (emb_str, chunk_id),
-                )
+            embeddings = self.generate_embeddings(texts)
 
-        logger.info(f"Successfully embedded {len(chunk_ids)} chunks.")
-        return len(chunk_ids)
+            with get_db_cursor() as cursor:
+                for chunk_id, emb in zip(chunk_ids, embeddings):
+                    emb_str = f"[{','.join(f'{x:.6f}' for x in emb)}]"
+                    cursor.execute(
+                        "UPDATE chunks SET embedding = %s::vector WHERE id = %s",
+                        (emb_str, chunk_id),
+                    )
+
+            total_embedded += len(chunk_ids)
+            logger.info(f"Progress: successfully embedded and saved {total_embedded}/{len(rows)} chunks.")
+            time.sleep(0.5)
+
+        logger.info(f"Successfully embedded all {total_embedded} chunks.")
+        return total_embedded
 
     def embed_unembedded_topics(self, subject_id: Optional[UUID] = None) -> int:
         """

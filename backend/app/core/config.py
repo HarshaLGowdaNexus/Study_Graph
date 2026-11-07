@@ -84,5 +84,13 @@ class Settings:
     CROSS_SUBJECT_MIN_VISIBLE_STRENGTH: int = int(os.getenv("CROSS_SUBJECT_MIN_VISIBLE_STRENGTH", "3"))
     LINK_JUDGE_MAX_CANDIDATES_PER_BATCH: int = int(os.getenv("LINK_JUDGE_MAX_CANDIDATES_PER_BATCH", "10"))
 
+    # Chatbot RAG Settings (Task T13, Decisions D09, D10, RULEBOOK 13.4, Feature F14, Risk R10)
+    CHAT_MODEL: str = os.getenv("CHAT_MODEL", "gemini-3.5-flash")
+    CHAT_TEMPERATURE: float = float(os.getenv("CHAT_TEMPERATURE", "0.2"))
+    # Minimum retrieval cosine similarity (0.0 to 1.0) below which question is flagged "Not found in your notes"
+    CHAT_CONFIDENCE_THRESHOLD: float = float(os.getenv("CHAT_CONFIDENCE_THRESHOLD", "0.60"))
+    # Top-K chunks retrieved from student notes per query
+    CHAT_TOP_K: int = int(os.getenv("CHAT_TOP_K", "5"))
+
 
 settings = Settings()
