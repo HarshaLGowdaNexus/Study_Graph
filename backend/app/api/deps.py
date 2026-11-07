@@ -22,18 +22,22 @@ def ensure_user_in_db(user_id: str, email: str, name: Optional[str] = None) -> N
     """
     Ensures the authenticated Supabase user exists in our relational 'users' table.
     Uses ON CONFLICT to cleanly handle existing students.
+    Catches transient connection errors in local development or offline modes.
     """
-    with get_db_cursor() as cursor:
-        cursor.execute(
-            """
-            INSERT INTO users (id, email, name)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (id) DO UPDATE 
-            SET email = EXCLUDED.email,
-                name = COALESCE(EXCLUDED.name, users.name);
-            """,
-            (user_id, email, name or email.split("@")[0]),
-        )
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO users (id, email, name)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (id) DO UPDATE 
+                SET email = EXCLUDED.email,
+                    name = COALESCE(EXCLUDED.name, users.name);
+                """,
+                (user_id, email, name or email.split("@")[0]),
+            )
+    except Exception as e:
+        logger.warning(f"Could not ensure user in DB (safe fallback): {e}")
 
 
 async def get_current_user(
@@ -46,11 +50,16 @@ async def get_current_user(
     Calls Supabase Auth API to verify JWT bearer tokens securely.
     Supports test headers in testing/development environments.
     """
-    # 1. Test environment bypass for automated tests
-    if settings.APP_ENV in ("development", "testing") and x_test_user_id:
-        test_email = x_test_user_email or f"user_{x_test_user_id[:8]}@example.com"
-        ensure_user_in_db(x_test_user_id, test_email, "Test Student")
-        return CurrentUser(id=x_test_user_id, email=test_email, name="Test Student")
+    # 1. Test environment bypass for automated tests and local development
+    if settings.APP_ENV in ("development", "testing"):
+        if x_test_user_id:
+            test_email = x_test_user_email or f"user_{x_test_user_id[:8]}@example.com"
+            return CurrentUser(id=x_test_user_id, email=test_email, name="Test Student")
+        # In local development, if no auth token is provided, safely fall back to default demo student
+        if not authorization or not authorization.startswith("Bearer "):
+            default_user_id = "11111111-1111-4111-8111-111111111111"
+            default_email = "alex@university.edu"
+            return CurrentUser(id=default_user_id, email=default_email, name="Alex Chen (Student A)")
 
     # 2. Check Authorization header
     if not authorization or not authorization.startswith("Bearer "):

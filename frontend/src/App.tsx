@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { UploadPage } from "./features/upload/UploadPage";
 import { LinkManager } from "./features/links/LinkManager";
-import { Upload, Network, ShieldCheck } from "lucide-react";
+import { TheoryPage } from "./features/theory/TheoryPage";
+import { Upload, Network, BookOpen, ShieldCheck } from "lucide-react";
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"upload" | "links">("links");
+  const [activeTab, setActiveTab] = useState<"theory" | "links" | "upload">("theory");
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -25,6 +26,17 @@ export const App: React.FC = () => {
           {/* Navigation Tabs */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
             <button
+              onClick={() => setActiveTab("theory")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
+                activeTab === "theory"
+                  ? "bg-white text-indigo-600 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Theory View (T12)
+            </button>
+            <button
               onClick={() => setActiveTab("links")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
                 activeTab === "links"
@@ -33,7 +45,7 @@ export const App: React.FC = () => {
               }`}
             >
               <Network className="w-3.5 h-3.5" />
-              Links & Locks (T10)
+              Links & Locks
             </button>
             <button
               onClick={() => setActiveTab("upload")}
@@ -56,7 +68,13 @@ export const App: React.FC = () => {
       </header>
 
       <main className="py-8">
-        {activeTab === "links" ? <LinkManager /> : <UploadPage />}
+        {activeTab === "theory" ? (
+          <TheoryPage />
+        ) : activeTab === "links" ? (
+          <LinkManager />
+        ) : (
+          <UploadPage />
+        )}
       </main>
     </div>
   );
