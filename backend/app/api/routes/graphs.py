@@ -1,0 +1,139 @@
+"""
+Graph and Hierarchy API Routes for StudyGraph.
+Relies on:
+  - Decision D01 & D03: React and react-force-graph 2D/3D clients.
+  - Decision D05: Supabase PostgreSQL cache retrieval.
+  - Pipeline Step 12 & 14: Community cluster zoom and cached graph loading.
+  - Rule 11 (Privacy): Multi-tenant isolation ensuring students only view their own graphs.
+"""
+
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+import psycopg2.extras
+
+from backend.app.api.deps import CurrentUser, get_current_user
+from backend.app.database import get_db_cursor
+from backend.app.services.cluster_service import cluster_service
+from backend.app.services.graph_service import graph_service
+
+router = APIRouter()
+
+
+class GraphVersionResponse(BaseModel):
+    id: str
+    version_number: int
+    summary: str
+    created_at: str
+
+
+@router.get("/graphs/cross-subject")
+async def get_cross_subject_graph(
+    fresh: bool = Query(False, description="Force recompile instead of cache hit"),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Returns the holistic multi-subject graph linking concepts across all subjects
+    belonging to the authenticated student.
+    """
+    cache_key = f"cross_subject:{current_user.id}"
+    if fresh:
+        return graph_service.refresh_and_cache_graph(user_id=current_user.id)
+    return graph_service.get_cached_graph(cache_key=cache_key, user_id=current_user.id)
+
+
+@router.get("/graphs/{subject_id}")
+async def get_subject_graph(
+    subject_id: str,
+    fresh: bool = Query(False, description="Force recompile instead of cache hit"),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Returns the pre-compiled, cached graph (nodes, links, and Louvain clusters)
+    for a specific subject folder.
+    """
+    # Verify subject ownership
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            "SELECT id FROM subjects WHERE id = %s AND user_id = %s;",
+            (subject_id, current_user.id),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Subject folder not found or access denied.",
+            )
+
+    cache_key = f"subject:{subject_id}"
+    if fresh:
+        return graph_service.refresh_and_cache_graph(
+            user_id=current_user.id, subject_id=subject_id
+        )
+
+    return graph_service.get_cached_graph(
+        cache_key=cache_key, user_id=current_user.id, subject_id=subject_id
+    )
+
+
+@router.get("/graphs/{subject_id}/versions", response_model=List[GraphVersionResponse])
+async def list_graph_versions(
+    subject_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> List[GraphVersionResponse]:
+    """
+    Returns the chronological evolution history (graph versions) for a subject.
+    """
+    with get_db_cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+        cursor.execute(
+            """
+            SELECT id, version_number, summary, created_at
+            FROM graph_versions
+            WHERE user_id = %s AND (subject_id = %s OR subject_id IS NULL)
+            ORDER BY created_at DESC;
+            """,
+            (current_user.id, subject_id),
+        )
+        rows = cursor.fetchall()
+
+    return [
+        GraphVersionResponse(
+            id=str(r["id"]),
+            version_number=r.get("version_number") or 1,
+            summary=r.get("summary") or "Graph updated",
+            created_at=r["created_at"].isoformat() if hasattr(r["created_at"], "isoformat") else str(r["created_at"]),
+        )
+        for r in rows
+    ]
+
+
+@router.post("/graphs/{subject_id}/recluster")
+async def recluster_subject(
+    subject_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Manually triggers NetworkX Louvain community detection and refreshes cached graph JSON.
+    """
+    # Verify subject ownership
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            "SELECT id FROM subjects WHERE id = %s AND user_id = %s;",
+            (subject_id, current_user.id),
+        )
+        if not cursor.fetchone():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Subject folder not found or access denied.",
+            )
+
+    clustering_res = cluster_service.build_subject_clusters(subject_id)
+    cached_graph = graph_service.refresh_and_cache_graph(
+        user_id=current_user.id, subject_id=subject_id
+    )
+
+    return {
+        "message": "Subject reclustered successfully.",
+        "clusters": clustering_res,
+        "graph_stats": cached_graph["stats"],
+    }
+

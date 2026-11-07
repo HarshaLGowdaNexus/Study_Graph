@@ -222,9 +222,10 @@ def test_judge_candidate_success_same_subject():
 
     mock_cursor = MagicMock()
     mock_cursor.fetchone.side_effect = [
-        None,  # existing edge check
+        None,  # existing edge initial lock check
         {"id": str(topic_a_id), "keyword": "QuickSort", "subject_id": str(uuid4()), "subject_name": "Algorithms"},
         {"id": str(topic_b_id), "keyword": "Divide and Conquer", "subject_id": str(uuid4()), "subject_name": "Algorithms"},
+        None,  # write-time lock check (no existing edge)
         {"id": generated_edge_id},  # returning id from INSERT INTO edges
     ]
     mock_cursor.fetchall.side_effect = [
@@ -278,6 +279,7 @@ def test_cross_subject_visibility_rules():
         None,
         {"id": str(uuid4()), "keyword": "A", "subject_id": str(uuid4()), "subject_name": "CS"},
         {"id": str(uuid4()), "keyword": "B", "subject_id": str(uuid4()), "subject_name": "Math"},
+        None,
         {"id": uuid4()},
     ]
     mock_cursor.fetchall.side_effect = [

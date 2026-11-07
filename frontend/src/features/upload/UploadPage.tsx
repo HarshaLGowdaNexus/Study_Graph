@@ -38,6 +38,7 @@ interface DocumentItem {
   error_message?: string;
   storage_path?: string;
   uploaded_at?: string;
+  summary?: string;
   topic_count?: number;
   unreviewed_count?: number;
 }
@@ -717,6 +718,14 @@ export const UploadPage: React.FC = () => {
                         {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
                       </span>
                     </div>
+
+                    {/* What Changed Summary Badge (Task T11) */}
+                    {doc.summary && (
+                      <div className="text-[11px] text-indigo-900 bg-indigo-50/70 border border-indigo-100 rounded-md px-2.5 py-1.5 flex items-center gap-1.5 mt-1">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                        <span className="font-medium text-slate-700 leading-tight">{doc.summary}</span>
+                      </div>
+                    )}
 
                     {doc.error_message && (
                       <p className="text-[11px] text-rose-600 bg-rose-50 p-1.5 rounded">

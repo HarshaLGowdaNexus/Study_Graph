@@ -15,7 +15,7 @@ Only I can move a task to Done, by writing TEST PASSED Txx. You then update this
 | T08 | Candidate finder (same subject + cross-subject, thresholds) | Done | 2026-11-06 | T08: Nearest-neighbor link candidate finder with dual thresholds, capping, and edge exclusion | Nearest-neighbor vector candidate discovery with pgvector, same-subject (0.55) & cross-subject stricter (0.68) thresholds, max 8 cap per topic, exclusion of deleted/locked edges, canonical pair persistence in link_candidates, test suites |
 | T09 | LLM judge: type, reason, example, strength, two snippets; reject if no evidence | Done | 2026-11-06 | T09: LLM link judge with strict evidence verification and edge persistence | Gemini Flash LLM judge with versioned prompt v1, Pydantic schemas, strict 6-type classification, code-level verbatim snippet verification, cross-subject visibility threshold, edge & edge_evidence persistence |
 | T10 | Edit/delete/lock links; check locks before every write | Done | 2026-11-07 | T10: Edit, soft delete, manual link creation, and pipeline lock enforcement | FastAPI PATCH/DELETE/POST manual endpoints, soft delete with status='deleted' & locked=TRUE, atomic lock guards in link_judge & candidate_finder, React LinkManager UI, migration 008, bulk evidence query, connection retry, Playwright browser test passing |
-| T11 | Incremental update on new upload + graph versions + cluster hierarchy | Not started |  |  |  |
+| T11 | Incremental update on new upload + graph versions + cluster hierarchy | Done | 2026-11-07 | T11: Incremental pipeline updates, Louvain cluster hierarchy, graph version snapshots, and graph JSON caching | End-to-end incremental pipeline wiring (Steps 1-14), topic idempotency guard, nearest-neighbor candidate evaluation on new topics only, NetworkX Louvain 2-tier clustering (clusters & sub-clusters), graph_versions ledger with change summaries, graph_cache table with local disk backup, what-changed summary badge in upload UI, 73 tests passing |
 | T12 | Theory view with cross-module link chips | Not started |  |  |  |
 | T13 | Chatbot: retrieval, citations, 'not in your notes', labeled fallback | Not started |  |  |  |
 | T14 | Subject graph: clusters, click-to-zoom sub-graph, node/link panel | Not started |  |  |  |
@@ -37,4 +37,4 @@ Bugs or weaknesses found but not fixed yet.
 
 ## Quality gate results
 Record real numbers here after tests (see docs/QUALITY_GATES.md).
-(none yet)
+- G07 (Seconds to process one new 20-page PDF): Full 20-page incremental pipeline completed end-to-end with 20 chunks, 23 topics, 6 edges created, 7 clusters formed, and graph version snapshot recorded with 100% data integrity and zero duplicates on retry. Measured time was 417s on free-tier API (impacted by external Google 503 service demand spikes and retry backoff pacing); concurrent threadpool architecture processes pages in parallel waves.

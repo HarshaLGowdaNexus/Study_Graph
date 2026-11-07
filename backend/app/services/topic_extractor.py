@@ -9,6 +9,7 @@ Relies on:
       - Rule 9: Mark uncertain data (topics saved with reviewed = false).
 """
 
+import concurrent.futures
 import json
 import logging
 import time
@@ -214,35 +215,65 @@ class TopicExtractorService:
 
         with get_db_cursor() as cursor:
             for topic in topics:
-                # Insert into topics table
+                # Check for existing topic in this subject to guarantee idempotency (Rule T11)
                 cursor.execute(
                     """
-                    INSERT INTO topics (
-                        subject_id,
-                        keyword,
-                        explanation,
-                        real_world_use,
-                        reviewed,
-                        module_no
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    RETURNING id;
+                    SELECT id, reviewed 
+                    FROM topics 
+                    WHERE subject_id = %s AND LOWER(TRIM(keyword)) = LOWER(TRIM(%s))
+                    LIMIT 1;
                     """,
-                    (
-                        subject_id,
-                        topic.keyword,
-                        topic.explanation,
-                        topic.real_world_use,
-                        False,  # reviewed = false
-                        module_no,
-                    ),
+                    (subject_id, topic.keyword),
                 )
-                row = cursor.fetchone()
-                if row:
-                    topic_id = str(row[0])
-                    created_topic_ids.append(topic_id)
+                existing = cursor.fetchone()
 
-                    # Insert citations into topic_sources table
+                if existing:
+                    topic_id = str(existing[0])
+                    is_reviewed = bool(existing[1])
+                    # If not reviewed by student yet, update with latest extraction
+                    if not is_reviewed:
+                        cursor.execute(
+                            """
+                            UPDATE topics
+                            SET explanation = %s,
+                                real_world_use = %s,
+                                module_no = COALESCE(module_no, %s)
+                            WHERE id = %s;
+                            """,
+                            (topic.explanation, topic.real_world_use, module_no, topic_id),
+                        )
+                    created_topic_ids.append(topic_id)
+                else:
+                    # Insert new topic into topics table
+                    cursor.execute(
+                        """
+                        INSERT INTO topics (
+                            subject_id,
+                            keyword,
+                            explanation,
+                            real_world_use,
+                            reviewed,
+                            module_no
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        RETURNING id;
+                        """,
+                        (
+                            subject_id,
+                            topic.keyword,
+                            topic.explanation,
+                            topic.real_world_use,
+                            False,  # reviewed = false
+                            module_no,
+                        ),
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        topic_id = str(row[0])
+                        created_topic_ids.append(topic_id)
+
+                # Insert citations into topic_sources table
+                if topic_id:
                     for chunk_id in topic.source_chunk_ids:
                         cursor.execute(
                             """
@@ -311,45 +342,56 @@ class TopicExtractorService:
 
         result = TopicExtractionBatchResult()
 
-        for page, chunks_on_page in sorted(pages_dict.items()):
-            result.batches_processed += 1
-            # Infer module_no from first chunk or document
-            module_no = chunks_on_page[0].get("module_no") or doc_module_no
-
-            # Check if text is non-empty
-            total_text = "".join(c["text"] for c in chunks_on_page).strip()
+        # Concurrent page processing for high throughput (Quality Gate G07: <= 90s for 20 pages)
+        def _process_single_page(page_entry: Tuple[int, List[dict]]):
+            p_num, chunks_on_p = page_entry
+            total_text = "".join(c["text"] for c in chunks_on_p).strip()
             if not total_text:
-                logger.info(f"[Topic Extractor] Page {page} has no text. Skipping topic extraction.")
+                return p_num, [], [], {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}, None
+
+            m_no = chunks_on_p[0].get("module_no") or doc_module_no
+            try:
+                val_topics, rej, tok = self.extract_topics_from_chunk_group(
+                    chunks=chunks_on_p,
+                    subject_id=str(subject_id),
+                    module_no=m_no,
+                )
+                return p_num, val_topics, rej, tok, None
+            except Exception as exc:
+                return p_num, [], [], {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}, str(exc)
+
+        page_items = sorted(pages_dict.items())
+        max_workers = min(5, len(page_items)) if page_items else 1
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            page_outputs = list(executor.map(_process_single_page, page_items))
+
+        # Sort outputs to preserve deterministic page ordering
+        page_outputs.sort(key=lambda x: x[0])
+
+        for page_num, valid_topics, rejected, tokens, err in page_outputs:
+            result.batches_processed += 1
+            if err:
+                result.batches_failed += 1
+                reason = f"Page {page_num} failed: {err}"
+                result.failure_reasons.append(reason)
+                logger.error(f"[Topic Extractor] {reason}")
                 continue
 
-            try:
-                valid_topics, rejected, tokens = self.extract_topics_from_chunk_group(
-                    chunks=chunks_on_page,
-                    subject_id=str(subject_id),
-                    module_no=module_no,
-                )
+            result.token_usage["prompt_tokens"] += tokens["prompt_tokens"]
+            result.token_usage["completion_tokens"] += tokens["completion_tokens"]
+            result.token_usage["total_tokens"] += tokens["total_tokens"]
+            result.topics_rejected += len(rejected)
 
-                # Accumulate tokens
-                result.token_usage["prompt_tokens"] += tokens["prompt_tokens"]
-                result.token_usage["completion_tokens"] += tokens["completion_tokens"]
-                result.token_usage["total_tokens"] += tokens["total_tokens"]
-
-                result.topics_rejected += len(rejected)
-
-                # Save valid topics
+            if valid_topics:
+                m_no = pages_dict[page_num][0].get("module_no") or doc_module_no
                 saved_ids = self.save_topics_to_database(
                     topics=valid_topics,
                     subject_id=str(subject_id),
-                    module_no=module_no,
+                    module_no=m_no,
                 )
                 result.topics_created += len(saved_ids)
                 result.created_topic_ids.extend(saved_ids)
-
-            except Exception as e:
-                result.batches_failed += 1
-                reason = f"Page {page} failed: {str(e)}"
-                result.failure_reasons.append(reason)
-                logger.error(f"[Topic Extractor] {reason}")
 
         logger.info(
             f"[Topic Extractor] Document {document_id} completed: "

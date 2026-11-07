@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.app.api.routes.candidates import router as candidates_router
 from backend.app.api.routes.dedupe import router as dedupe_router
 from backend.app.api.routes.edges import router as edges_router
+from backend.app.api.routes.graphs import router as graphs_router
 from backend.app.api.routes.topics import router as topics_router
 from backend.app.api.routes.upload import router as upload_router
 from backend.app.core.config import settings
@@ -40,6 +41,7 @@ app.include_router(topics_router, prefix="/api")
 app.include_router(dedupe_router, prefix="/api")
 app.include_router(candidates_router)
 app.include_router(edges_router)
+app.include_router(graphs_router, prefix="/api")
 
 
 @app.get("/", tags=["Health"])
