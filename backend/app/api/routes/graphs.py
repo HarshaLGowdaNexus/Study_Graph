@@ -16,6 +16,7 @@ from backend.app.api.deps import CurrentUser, get_current_user
 from backend.app.database import get_db_cursor
 from backend.app.services.cluster_service import cluster_service
 from backend.app.services.graph_service import graph_service
+from backend.app.services.synthetic_graph_service import synthetic_graph_service
 
 router = APIRouter()
 
@@ -25,6 +26,23 @@ class GraphVersionResponse(BaseModel):
     version_number: int
     summary: str
     created_at: str
+
+
+@router.get("/graphs/synthetic/stress-test")
+def get_synthetic_stress_test_graph(
+    node_count: int = Query(500, ge=10, le=1000, description="Total benchmark nodes to generate"),
+    cluster_id: Optional[str] = Query(None, description="Zoom/filter to specific cluster sub-graph"),
+    max_nodes: Optional[int] = Query(None, ge=10, le=1000, description="Maximum visible nodes cap"),
+) -> Dict[str, Any]:
+    """
+    Returns a deterministic synthetic benchmark graph with up to 500+ topics
+    for stress-testing client-side canvas rendering, force simulation, and camera zoom (R09, R14).
+    """
+    return synthetic_graph_service.generate_benchmark_graph(
+        node_count=node_count,
+        cluster_filter=cluster_id,
+        max_visible_nodes=max_nodes,
+    )
 
 
 @router.get("/graphs/cross-subject")

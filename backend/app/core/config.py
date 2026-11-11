@@ -92,5 +92,11 @@ class Settings:
     # Top-K chunks retrieved from student notes per query
     CHAT_TOP_K: int = int(os.getenv("CHAT_TOP_K", "5"))
 
+    # Graph Visualization Settings (Task T14, Decisions D03, D11, Feature F11, Risks R09, R14)
+    # Default node visibility cap to prevent canvas rendering lag on weak devices (R14)
+    GRAPH_MAX_VISIBLE_NODES: int = int(os.getenv("GRAPH_MAX_VISIBLE_NODES", "150"))
+    # Minimum strength (1-5) required for edges to be visible when 'hide weak edges' is active (R09, Rule 13.8)
+    GRAPH_WEAK_LINK_THRESHOLD: int = int(os.getenv("GRAPH_WEAK_LINK_THRESHOLD", "3"))
+
 
 settings = Settings()

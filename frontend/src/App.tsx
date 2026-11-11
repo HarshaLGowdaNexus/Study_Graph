@@ -3,10 +3,11 @@ import { UploadPage } from "./features/upload/UploadPage";
 import { LinkManager } from "./features/links/LinkManager";
 import { TheoryPage } from "./features/theory/TheoryPage";
 import { ChatPage } from "./features/chat/ChatPage";
-import { Upload, Network, BookOpen, ShieldCheck, MessageSquare } from "lucide-react";
+import { SubjectGraphPage } from "./features/graph/SubjectGraphPage";
+import { Upload, Network, BookOpen, ShieldCheck, MessageSquare, Share2 } from "lucide-react";
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"theory" | "chat" | "links" | "upload">("chat");
+  const [activeTab, setActiveTab] = useState<"graph" | "chat" | "theory" | "links" | "upload">("graph");
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -27,45 +28,51 @@ export const App: React.FC = () => {
           {/* Navigation Tabs */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
             <button
-              onClick={() => setActiveTab("chat")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-                activeTab === "chat"
+              onClick={() => setActiveTab("graph")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${activeTab === "graph"
                   ? "bg-white text-indigo-600 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              Subject Graph (T14)
+            </button>
+            <button
+              onClick={() => setActiveTab("chat")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${activeTab === "chat"
+                  ? "bg-white text-indigo-600 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+                }`}
             >
               <MessageSquare className="w-3.5 h-3.5" />
               Study Chat (T13)
             </button>
             <button
               onClick={() => setActiveTab("theory")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-                activeTab === "theory"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${activeTab === "theory"
                   ? "bg-white text-indigo-600 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               <BookOpen className="w-3.5 h-3.5" />
               Theory View (T12)
             </button>
             <button
               onClick={() => setActiveTab("links")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-                activeTab === "links"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${activeTab === "links"
                   ? "bg-white text-indigo-600 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               <Network className="w-3.5 h-3.5" />
               Links & Locks
             </button>
             <button
               onClick={() => setActiveTab("upload")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${
-                activeTab === "upload"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${activeTab === "upload"
                   ? "bg-white text-indigo-600 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               <Upload className="w-3.5 h-3.5" />
               Upload & Ingest
@@ -80,7 +87,9 @@ export const App: React.FC = () => {
       </header>
 
       <main className="py-8">
-        {activeTab === "chat" ? (
+        {activeTab === "graph" ? (
+          <SubjectGraphPage />
+        ) : activeTab === "chat" ? (
           <ChatPage />
         ) : activeTab === "theory" ? (
           <TheoryPage />
