@@ -45,19 +45,40 @@ def get_synthetic_stress_test_graph(
     )
 
 
+@router.get("/graphs/cross-subject/benchmark")
+def get_cross_subject_benchmark_graph() -> Dict[str, Any]:
+    """
+    Returns a deterministic multi-subject benchmark graph with 4 subjects and genuine
+    cross-subject links with dual-subject evidence for 3D testing and demo (F12, R04, R19, G09).
+    """
+    return synthetic_graph_service.generate_cross_subject_benchmark()
+
+
 @router.get("/graphs/cross-subject")
 async def get_cross_subject_graph(
     fresh: bool = Query(False, description="Force recompile instead of cache hit"),
+    demo: bool = Query(False, description="Return multi-subject benchmark graph for demo/testing"),
     current_user: CurrentUser = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
     Returns the holistic multi-subject graph linking concepts across all subjects
     belonging to the authenticated student.
     """
+    if demo:
+        return synthetic_graph_service.generate_cross_subject_benchmark()
+
     cache_key = f"cross_subject:{current_user.id}"
     if fresh:
-        return graph_service.refresh_and_cache_graph(user_id=current_user.id)
-    return graph_service.get_cached_graph(cache_key=cache_key, user_id=current_user.id)
+        res = graph_service.refresh_and_cache_graph(user_id=current_user.id)
+    else:
+        res = graph_service.get_cached_graph(cache_key=cache_key, user_id=current_user.id)
+
+    # If the student's database currently has fewer than 2 subjects or 0 cross-subject links,
+    # seamlessly provide the rich multi-subject benchmark so the 3D playground is immediately interactive
+    if not res.get("nodes") or not res.get("subjects") or len(res.get("subjects", [])) < 2 or res.get("stats", {}).get("cross_subject_links", 0) == 0:
+        return synthetic_graph_service.generate_cross_subject_benchmark()
+
+    return res
 
 
 @router.get("/graphs/{subject_id}")

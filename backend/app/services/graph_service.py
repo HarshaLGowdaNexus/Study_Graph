@@ -244,6 +244,7 @@ class GraphService:
             # 3. Fetch all edges between these topics
             topic_ids = [str(t["id"]) for t in topics]
             edges = []
+            evidence_by_edge: Dict[str, List[Dict[str, Any]]] = {}
             if topic_ids:
                 cursor.execute(
                     """
@@ -258,6 +259,27 @@ class GraphService:
                     (topic_ids, topic_ids),
                 )
                 edges = cursor.fetchall()
+
+                # Fetch edge evidence snippets (RULEBOOK: no evidence, no link)
+                edge_ids = [str(e["id"]) for e in edges]
+                if edge_ids:
+                    cursor.execute(
+                        """
+                        SELECT edge_id, chunk_id, snippet
+                        FROM edge_evidence
+                        WHERE edge_id = ANY(%s::uuid[]);
+                        """,
+                        (edge_ids,),
+                    )
+                    evidence_rows = cursor.fetchall()
+                    for ev in evidence_rows:
+                        eid = str(ev["edge_id"])
+                        evidence_by_edge.setdefault(eid, []).append({
+                            "chunk_id": str(ev["chunk_id"]) if ev["chunk_id"] else None,
+                            "snippet": ev["snippet"],
+                        })
+
+        topic_lookup = {str(t["id"]): t for t in topics}
 
         nodes = [
             {
@@ -275,21 +297,42 @@ class GraphService:
             for t in topics
         ]
 
-        links = [
-            {
-                "id": str(e["id"]),
+        links = []
+        for e in edges:
+            eid = str(e["id"])
+            t_a = topic_lookup.get(str(e["topic_a"]))
+            t_b = topic_lookup.get(str(e["topic_b"]))
+
+            source_subj_id = str(t_a["subject_id"]) if t_a else ""
+            target_subj_id = str(t_b["subject_id"]) if t_b else ""
+            source_subj_name = subject_map.get(source_subj_id, "Unknown Subject")
+            target_subj_name = subject_map.get(target_subj_id, "Unknown Subject")
+
+            is_cross = (source_subj_id != target_subj_id) or (e.get("scope") == "cross_subject")
+            scope = "cross_subject" if is_cross else "same_subject"
+            ev_list = evidence_by_edge.get(eid, [])
+
+            links.append({
+                "id": eid,
                 "source": str(e["topic_a"]),
                 "target": str(e["topic_b"]),
+                "source_keyword": t_a["keyword"] if t_a else "Unknown Topic",
+                "target_keyword": t_b["keyword"] if t_b else "Unknown Topic",
+                "source_subject_id": source_subj_id,
+                "target_subject_id": target_subj_id,
+                "source_subject_name": source_subj_name,
+                "target_subject_name": target_subj_name,
                 "type": e["type"],
                 "reason": e["reason"],
                 "industry_example": e["industry_example"],
                 "strength": int(e["strength"]),
-                "scope": e["scope"],
+                "scope": scope,
                 "status": e["status"],
                 "locked": bool(e["locked"]),
-            }
-            for e in edges
-        ]
+                "evidence": ev_list,
+                "snippet_a": ev_list[0]["snippet"] if len(ev_list) > 0 else None,
+                "snippet_b": ev_list[1]["snippet"] if len(ev_list) > 1 else None,
+            })
 
         return {
             "scope": "cross_subject",

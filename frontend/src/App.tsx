@@ -4,10 +4,11 @@ import { LinkManager } from "./features/links/LinkManager";
 import { TheoryPage } from "./features/theory/TheoryPage";
 import { ChatPage } from "./features/chat/ChatPage";
 import { SubjectGraphPage } from "./features/graph/SubjectGraphPage";
-import { Upload, Network, BookOpen, ShieldCheck, MessageSquare, Share2 } from "lucide-react";
+import { CrossSubjectGraphPage } from "./features/cross_graph/CrossSubjectGraphPage";
+import { Upload, Network, BookOpen, ShieldCheck, MessageSquare, Share2, Globe } from "lucide-react";
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"graph" | "chat" | "theory" | "links" | "upload">("graph");
+  const [activeTab, setActiveTab] = useState<"cross_graph" | "graph" | "chat" | "theory" | "links" | "upload">("cross_graph");
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -27,6 +28,16 @@ export const App: React.FC = () => {
 
           {/* Navigation Tabs */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+            <button
+              onClick={() => setActiveTab("cross_graph")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${activeTab === "cross_graph"
+                  ? "bg-white text-indigo-600 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+                }`}
+            >
+              <Globe className="w-3.5 h-3.5 text-indigo-500" />
+              Cross-Subject 3D (T15)
+            </button>
             <button
               onClick={() => setActiveTab("graph")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${activeTab === "graph"
@@ -87,7 +98,9 @@ export const App: React.FC = () => {
       </header>
 
       <main className="py-8">
-        {activeTab === "graph" ? (
+        {activeTab === "cross_graph" ? (
+          <CrossSubjectGraphPage />
+        ) : activeTab === "graph" ? (
           <SubjectGraphPage />
         ) : activeTab === "chat" ? (
           <ChatPage />
