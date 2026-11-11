@@ -98,5 +98,17 @@ class Settings:
     # Minimum strength (1-5) required for edges to be visible when 'hide weak edges' is active (R09, Rule 13.8)
     GRAPH_WEAK_LINK_THRESHOLD: int = int(os.getenv("GRAPH_WEAK_LINK_THRESHOLD", "3"))
 
+    # Topic Search, Focused Subgraph & 2D Performance Fallback Settings (Task T16, Features F13, F15, Risks R09, R14, G08)
+    # FPS below this limit triggers automatic fallback from 3D WebGL to 2D Canvas
+    GRAPH_FPS_FALLBACK_THRESHOLD: int = int(os.getenv("GRAPH_FPS_FALLBACK_THRESHOLD", "25"))
+    # Consecutive 500ms measurement windows below threshold required before switching (4 windows = 2.0s)
+    GRAPH_FPS_LOW_STREAK_COUNT: int = int(os.getenv("GRAPH_FPS_LOW_STREAK_COUNT", "4"))
+    # Default and allowed hop radius when focusing on a searched topic (2-3 hops per Feature F13)
+    GRAPH_SEARCH_DEFAULT_HOPS: int = int(os.getenv("GRAPH_SEARCH_DEFAULT_HOPS", "2"))
+    GRAPH_SEARCH_MIN_HOPS: int = int(os.getenv("GRAPH_SEARCH_MIN_HOPS", "1"))
+    GRAPH_SEARCH_MAX_HOPS: int = int(os.getenv("GRAPH_SEARCH_MAX_HOPS", "3"))
+    # Maximum autocomplete suggestions returned by topic search
+    GRAPH_SEARCH_MAX_SUGGESTIONS: int = int(os.getenv("GRAPH_SEARCH_MAX_SUGGESTIONS", "10"))
+
 
 settings = Settings()

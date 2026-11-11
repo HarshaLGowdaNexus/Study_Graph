@@ -20,7 +20,7 @@ Only I can move a task to Done, by writing TEST PASSED Txx. You then update this
 | T13 | Chatbot: retrieval, citations, 'not in your notes', labeled fallback | Done | 2026-11-07 | T13: Grounded RAG study chatbot with citations, honest fallback, and clear chat | FastAPI /api/subjects/{id}/chat & history GET/DELETE endpoints, pgvector cosine chunk retrieval with multi-tenant privacy isolation, two-tier anti-hallucination defense (0.60 threshold + LLM guard), 188 chunks vector backfill with 429 rate-limit backoff, ChatPage UI with Grounded vs General badges, clickable CitationBadge with verbatim snippets, New Chat / Clear History button, 100% G04 & 100% G05 benchmark passing |
 | T14 | Subject graph: clusters, click-to-zoom sub-graph, node/link panel | Done | 2026-11-11 | T14: Interactive subject graph with cluster zoom, node/link panels, midpoint directional arrows, weak link toggle, and 500-topic stress test | Force-directed 2D canvas with react-force-graph-2d, Louvain cluster color coding, smooth 1000ms camera fly-to/zoom, NodeDetailPanel (theory card, 4-line rule, real-world use), LinkDetailPanel with T10 inline edit/delete and evidence quotes, midpoint directional arrows, weak-link toggle with live count badge, visible node capping slider, 500-topic synthetic benchmark generator, 9 unit tests passing, production build verified |
 | T15 | Cross-subject 3D graph + text version of cross links | Done | 2026-11-11 | T15: Cross-subject 3D graph with Three.js orbit controls, dual evidence quotes, and synchronized text list | Interactive 3D multi-subject galaxy space with react-force-graph-3d & Three.js, distinct subject cluster forces and camera fly-to, continuous 360° auto-orbit, 1–5 strength slider/buttons (default 3+), faded same-subject links, dual-snippet evidence modal, 100% synchronized text list, isolated live FPS badge, 8 unit tests passing, production build verified |
-| T16 | Search topic -> focused graph + theory; 2D mode + auto fallback | Not started |  |  |  |
+| T16 | Search topic -> focused graph + theory; 2D mode + auto fallback | Done | 2026-11-11 | T16: Topic search with aliases, 2-3 hop focused graph + theory card, manual 2D mode, and auto FPS fallback | Central search/FPS config (backend/app/core/config.py & frontend/src/config/graphConfig.ts), alias-aware topic search (/api/topics/search + TopicSearchBar), 2-3 hop BFS focused subgraph (/api/graphs/focus/{topic_id} + extractKHopSubgraph) with Theory Card, manual 2D Focus Mode (CrossSubjectGraph2D), automatic 3D->2D FPS fallback (useFpsMonitor) with friendly dismissible notice; 5 pytest + 8 Vitest + production build passing; laptop test passed, Vivo mobile G08 check deferred to T19 |
 | T17 | Important concepts + repeated questions (labeled) + marks-based answers | Not started |  |  |  |
 | T18 | Ghost nodes from syllabus + notes-vs-textbook preference | Not started |  |  |  |
 | T19 | Run Quality Gates; fix link quality and chatbot honesty issues | Not started |  |  |  |
@@ -33,7 +33,7 @@ Ideas or extra work you noticed but did NOT do (scope rule). I decide later.
 
 ## Known issues
 Bugs or weaknesses found but not fixed yet.
-(none yet)
+- Vivo mobile LAN loading failed during T16 (likely Windows Firewall / Wi-Fi isolation); mobile & weakest-device G08 FPS check deferred to T19.
 
 ## Quality gate results
 Record real numbers here after tests (see docs/QUALITY_GATES.md).

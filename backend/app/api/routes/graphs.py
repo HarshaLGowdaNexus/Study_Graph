@@ -13,6 +13,7 @@ from pydantic import BaseModel
 import psycopg2.extras
 
 from backend.app.api.deps import CurrentUser, get_current_user
+from backend.app.core.config import settings
 from backend.app.database import get_db_cursor
 from backend.app.services.cluster_service import cluster_service
 from backend.app.services.graph_service import graph_service
@@ -79,6 +80,50 @@ async def get_cross_subject_graph(
         return synthetic_graph_service.generate_cross_subject_benchmark()
 
     return res
+
+
+@router.get("/graphs/config")
+def get_graph_config() -> Dict[str, Any]:
+    """
+    Returns central graph visualization and performance fallback configuration
+    from backend/app/core/config.py (Rule 5).
+    """
+    return {
+        "fps_fallback_threshold": settings.GRAPH_FPS_FALLBACK_THRESHOLD,
+        "fps_low_streak_count": settings.GRAPH_FPS_LOW_STREAK_COUNT,
+        "default_search_hops": settings.GRAPH_SEARCH_DEFAULT_HOPS,
+        "min_search_hops": settings.GRAPH_SEARCH_MIN_HOPS,
+        "max_search_hops": settings.GRAPH_SEARCH_MAX_HOPS,
+        "max_visible_nodes": settings.GRAPH_MAX_VISIBLE_NODES,
+        "weak_link_threshold": settings.GRAPH_WEAK_LINK_THRESHOLD,
+    }
+
+
+@router.get("/graphs/focus/{topic_id}")
+def get_focused_topic_graph(
+    topic_id: str,
+    hops: Optional[int] = Query(None, ge=1, le=5, description="Neighborhood hop radius (clamped to config 1-3)"),
+    include_weak: bool = Query(False, description="Include weak links below strength threshold"),
+    max_nodes: Optional[int] = Query(None, ge=10, le=500, description="Maximum visible nodes cap"),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Returns a focused 2-3 hop local subgraph centered on the searched topic
+    along with its Theory Card details (Feature F13, Risk R09, Rule 11).
+    """
+    try:
+        return graph_service.get_focused_subgraph(
+            topic_id=topic_id,
+            user_id=current_user.id,
+            hops=hops,
+            include_weak=include_weak,
+            max_nodes=max_nodes,
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Topic not found or access denied.",
+        )
 
 
 @router.get("/graphs/{subject_id}")

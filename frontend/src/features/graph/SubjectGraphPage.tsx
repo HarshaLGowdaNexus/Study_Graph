@@ -1,24 +1,35 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Network,
   Layers,
-  Filter,
   Eye,
   EyeOff,
   RotateCcw,
   ZoomIn,
   ZoomOut,
-  Sparkles,
   Zap,
-  BookOpen,
   AlertCircle,
   Folder,
   Sliders,
   CheckCircle2,
+  Crosshair,
+  X,
+  BookOpen,
 } from "lucide-react";
 import { GraphCanvas, GraphCanvasHandle } from "./GraphCanvas";
-import { NodeDetailPanel, GraphNodeData } from "./NodeDetailPanel";
+import { NodeDetailPanel, GraphNodeData, ConnectedConceptChip } from "./NodeDetailPanel";
 import { LinkDetailPanel, GraphLinkData } from "./LinkDetailPanel";
+import { TopicSearchBar } from "./TopicSearchBar";
+import {
+  DEFAULT_GRAPH_CONFIG,
+  GraphRuntimeConfig,
+  fetchGraphRuntimeConfig,
+} from "../../config/graphConfig";
+import {
+  SearchTopicSuggestion,
+  extractKHopSubgraph,
+  getEndpointId,
+} from "./focusSearchUtils";
 
 interface SubjectItem {
   id: string;
@@ -60,10 +71,25 @@ export const SubjectGraphPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // View & Filter Controls
+  const [runtimeConfig, setRuntimeConfig] = useState<GraphRuntimeConfig>(DEFAULT_GRAPH_CONFIG);
   const [isStressTestMode, setIsStressTestMode] = useState(false);
   const [selectedClusterId, setSelectedClusterId] = useState<string>("all");
   const [showWeakLinks, setShowWeakLinks] = useState(false); // Default: weak links hidden (Rule 13.8)
-  const [nodeCap, setNodeCap] = useState<number>(150); // Capped at 150 by default (Risk R14)
+  const [nodeCap, setNodeCap] = useState<number>(DEFAULT_GRAPH_CONFIG.maxVisibleNodes);
+
+  // Topic search & 2-3 hop focus state (Task T16, Feature F13)
+  const [focusedTopicMeta, setFocusedTopicMeta] = useState<{
+    id: string;
+    keyword: string;
+    matchedAlias?: string | null;
+    source: "database" | "local";
+  } | null>(null);
+  const [hopCount, setHopCount] = useState<number>(DEFAULT_GRAPH_CONFIG.defaultSearchHops);
+  const [focusedDbGraph, setFocusedDbGraph] = useState<{
+    nodes: GraphNodeData[];
+    links: GraphLinkData[];
+    focus_topic?: GraphNodeData | null;
+  } | null>(null);
 
   // Selection state for side drawers
   const [selectedNode, setSelectedNode] = useState<GraphNodeData | null>(null);
@@ -77,6 +103,15 @@ export const SubjectGraphPage: React.FC = () => {
       "x-test-user-email": activeUser.email,
     };
   }, [activeUser]);
+
+  // Hydrate central config on mount
+  useEffect(() => {
+    fetchGraphRuntimeConfig().then((cfg) => {
+      setRuntimeConfig(cfg);
+      setHopCount(cfg.defaultSearchHops);
+      setNodeCap(cfg.maxVisibleNodes);
+    });
+  }, []);
 
   // Load subject list on mount
   useEffect(() => {
@@ -111,6 +146,8 @@ export const SubjectGraphPage: React.FC = () => {
     setSelectedNode(null);
     setSelectedLink(null);
     setSelectedClusterId("all");
+    setFocusedTopicMeta(null);
+    setFocusedDbGraph(null);
 
     try {
       const res = await fetch(`/api/graphs/${subjectId}`, { headers: authHeaders });
@@ -130,6 +167,8 @@ export const SubjectGraphPage: React.FC = () => {
     setSelectedNode(null);
     setSelectedLink(null);
     setSelectedClusterId("all");
+    setFocusedTopicMeta(null);
+    setFocusedDbGraph(null);
 
     try {
       const res = await fetch(`/api/graphs/synthetic/stress-test?node_count=${count}`);
@@ -156,8 +195,126 @@ export const SubjectGraphPage: React.FC = () => {
     }
   };
 
-  // Filter nodes according to visible node cap and cluster zoom
+  // Fetch focused 2-3 hop subgraph from backend for database topics
+  const loadFocusedDbGraph = useCallback(
+    async (topicId: string, hops: number, includeWeak: boolean, cap: number) => {
+      try {
+        const params = new URLSearchParams({
+          hops: String(hops),
+          include_weak: String(includeWeak),
+          max_nodes: String(cap),
+        });
+        const res = await fetch(`/api/graphs/focus/${topicId}?${params.toString()}`, {
+          headers: authHeaders,
+        });
+        if (!res.ok) throw new Error("Failed to load focused neighborhood.");
+        const focusedJson = await res.json();
+        setFocusedDbGraph(focusedJson);
+        if (focusedJson.focus_topic) {
+          setSelectedNode(focusedJson.focus_topic);
+        }
+        setTimeout(() => canvasRef.current?.resetView(), 220);
+      } catch (err: any) {
+        setError(err.message || "Could not load focused topic graph.");
+      }
+    },
+    [authHeaders]
+  );
+
+  const handleSelectSearchTopic = useCallback(
+    async (suggestion: SearchTopicSuggestion) => {
+      setSelectedLink(null);
+      setSelectedClusterId("all");
+      setFocusedTopicMeta({
+        id: suggestion.id,
+        keyword: suggestion.keyword,
+        matchedAlias: suggestion.matched_alias,
+        source: suggestion.source === "local" ? "local" : "database",
+      });
+
+      if (suggestion.source === "local") {
+        setFocusedDbGraph(null);
+        const foundNode = graphData?.nodes?.find((n) => n.id === suggestion.id);
+        setSelectedNode(
+          foundNode
+            ? { ...foundNode, hop_distance: 0, is_focus: true }
+            : {
+                id: suggestion.id,
+                name: suggestion.keyword,
+                keyword: suggestion.keyword,
+                aliases: suggestion.aliases,
+                explanation: suggestion.explanation,
+                real_world_use: suggestion.real_world_use,
+                module_no: suggestion.module_no,
+                reviewed: suggestion.reviewed,
+                subject_id: suggestion.subject_id,
+                subject_name: suggestion.subject_name,
+                hop_distance: 0,
+                is_focus: true,
+              }
+        );
+        setTimeout(() => canvasRef.current?.resetView(), 220);
+      } else {
+        await loadFocusedDbGraph(suggestion.id, hopCount, showWeakLinks, nodeCap);
+      }
+    },
+    [graphData?.nodes, hopCount, showWeakLinks, nodeCap, loadFocusedDbGraph]
+  );
+
+  const handleChangeHops = (nextHops: number) => {
+    setHopCount(nextHops);
+    if (focusedTopicMeta?.source === "database") {
+      loadFocusedDbGraph(focusedTopicMeta.id, nextHops, showWeakLinks, nodeCap);
+    } else {
+      setTimeout(() => canvasRef.current?.resetView(), 180);
+    }
+  };
+
+  const handleClearTopicFocus = () => {
+    setFocusedTopicMeta(null);
+    setFocusedDbGraph(null);
+    setSelectedNode(null);
+    setTimeout(() => canvasRef.current?.resetView(), 120);
+  };
+
+  // Filter nodes according to focused search, visible node cap, and cluster zoom
   const displayedGraph = useMemo(() => {
+    if (focusedTopicMeta?.source === "database" && focusedDbGraph) {
+      let links = [...focusedDbGraph.links];
+      const totalLinksBeforeWeakFilter = links.length;
+      if (!showWeakLinks) {
+        links = links.filter((l) => (l.strength || 1) >= runtimeConfig.weakLinkThreshold);
+      }
+      return {
+        nodes: focusedDbGraph.nodes,
+        links,
+        hiddenWeakCount: totalLinksBeforeWeakFilter - links.length,
+        totalLinksBeforeWeakFilter,
+      };
+    }
+
+    if (focusedTopicMeta?.source === "local" && graphData) {
+      const sub = extractKHopSubgraph(
+        graphData.nodes,
+        graphData.links,
+        focusedTopicMeta.id,
+        hopCount,
+        {
+          includeWeak: showWeakLinks,
+          weakThreshold: runtimeConfig.weakLinkThreshold,
+          maxNodes: nodeCap,
+          minHops: runtimeConfig.minSearchHops,
+          maxHops: runtimeConfig.maxSearchHops,
+        }
+      );
+      return {
+        nodes: sub.nodes,
+        links: sub.links,
+        hiddenWeakCount: sub.hiddenWeakCount,
+        totalLinksBeforeWeakFilter: sub.links.length + sub.hiddenWeakCount,
+      };
+    }
+
     if (!graphData) return { nodes: [], links: [], hiddenWeakCount: 0, totalLinksBeforeWeakFilter: 0 };
 
     let nodes = [...graphData.nodes];
@@ -178,7 +335,6 @@ export const SubjectGraphPage: React.FC = () => {
 
     // Apply visible node capping (Risk R14: prevents FPS lag)
     if (nodes.length > nodeCap) {
-      // Calculate node degree (link count) to keep network hubs
       const degreeMap: Record<string, number> = {};
       links.forEach((l) => {
         const srcId = typeof l.source === "object" ? l.source.id : l.source;
@@ -200,15 +356,26 @@ export const SubjectGraphPage: React.FC = () => {
     // Apply weak link filtering (Rule 13.8: strength < 3 hidden by default)
     const totalLinksBeforeWeakFilter = links.length;
     if (!showWeakLinks) {
-      links = links.filter((l) => (l.strength || 1) >= 3);
+      links = links.filter((l) => (l.strength || 1) >= runtimeConfig.weakLinkThreshold);
     }
     const hiddenWeakCount = totalLinksBeforeWeakFilter - links.length;
 
     return { nodes, links, hiddenWeakCount, totalLinksBeforeWeakFilter };
-  }, [graphData, selectedClusterId, nodeCap, showWeakLinks]);
+  }, [
+    graphData,
+    focusedTopicMeta,
+    focusedDbGraph,
+    hopCount,
+    selectedClusterId,
+    nodeCap,
+    showWeakLinks,
+    runtimeConfig,
+  ]);
 
   // Handle cluster dropdown selection with smooth camera animation
   const handleClusterSelect = (clusterVal: string) => {
+    setFocusedTopicMeta(null);
+    setFocusedDbGraph(null);
     setSelectedClusterId(clusterVal);
     if (clusterVal === "all") {
       canvasRef.current?.resetView();
@@ -239,15 +406,56 @@ export const SubjectGraphPage: React.FC = () => {
     setSelectedLink(null);
   };
 
-  // Calculate connected edges for selected node
-  const selectedNodeEdgeCount = useMemo(() => {
-    if (!selectedNode || !graphData) return 0;
-    return graphData.links.filter((l) => {
-      const srcId = typeof l.source === "object" ? l.source.id : l.source;
-      const tgtId = typeof l.target === "object" ? l.target.id : l.target;
-      return srcId === selectedNode.id || tgtId === selectedNode.id;
-    }).length;
-  }, [selectedNode, graphData]);
+  // Connected edges & quick-jump chips for selected node
+  const selectedNodeConnectedChips: ConnectedConceptChip[] = useMemo(() => {
+    if (!selectedNode) return [];
+    const nodeMap = new Map<string, GraphNodeData>();
+    for (const n of displayedGraph.nodes) nodeMap.set(n.id, n);
+
+    const chips: ConnectedConceptChip[] = [];
+    for (const l of displayedGraph.links) {
+      const srcId = getEndpointId(l.source as any);
+      const tgtId = getEndpointId(l.target as any);
+      if (srcId === selectedNode.id) {
+        const other = nodeMap.get(tgtId);
+        chips.push({
+          edgeId: l.id,
+          targetTopicId: tgtId,
+          targetKeyword: other?.keyword || tgtId,
+          type: l.type || "related",
+          strength: l.strength || 3,
+        });
+      } else if (tgtId === selectedNode.id) {
+        const other = nodeMap.get(srcId);
+        chips.push({
+          edgeId: l.id,
+          targetTopicId: srcId,
+          targetKeyword: other?.keyword || srcId,
+          type: l.type || "related",
+          strength: l.strength || 3,
+        });
+      }
+    }
+    return chips;
+  }, [selectedNode, displayedGraph]);
+
+  const handleFocusConnectedTopic = (topicId: string) => {
+    const node = displayedGraph.nodes.find((n) => n.id === topicId);
+    const sourceMode = focusedTopicMeta?.source || (isStressTestMode ? "local" : "database");
+    handleSelectSearchTopic({
+      id: topicId,
+      subject_id: node?.subject_id || selectedSubjectId,
+      subject_name: node?.subject_name || graphData?.subject_name || "Subject",
+      keyword: node?.keyword || node?.name || "Topic",
+      aliases: node?.aliases || [],
+      explanation: node?.explanation || "",
+      real_world_use: node?.real_world_use || "",
+      module_no: node?.module_no || 1,
+      reviewed: Boolean(node?.reviewed),
+      cluster_label: node?.cluster_label,
+      source: sourceMode,
+    });
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4">
@@ -402,6 +610,76 @@ export const SubjectGraphPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Topic Search & Focused Neighborhood Bar (Task T16, Feature F13) */}
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-3">
+        <TopicSearchBar
+          localNodes={graphData?.nodes || []}
+          subjectId={!isStressTestMode && selectedSubjectId ? selectedSubjectId : undefined}
+          authHeaders={authHeaders}
+          onSelectTopic={handleSelectSearchTopic}
+          onClearFocus={handleClearTopicFocus}
+          activeFocusKeyword={focusedTopicMeta?.keyword}
+          placeholder="Search any topic or merged alias in this subject (e.g. Module 4 topic)..."
+          variant="light"
+        />
+
+        {focusedTopicMeta && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs">
+            <div className="flex items-center flex-wrap gap-2">
+              <Crosshair className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span className="font-bold text-indigo-950">
+                Focused ({hopCount}-Hop Subgraph): {focusedTopicMeta.keyword}
+              </span>
+              {focusedTopicMeta.matchedAlias && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 font-semibold">
+                  via alias "{focusedTopicMeta.matchedAlias}"
+                </span>
+              )}
+              <span className="text-indigo-700">
+                ({displayedGraph.nodes.length} topics, {displayedGraph.links.length} links)
+              </span>
+            </div>
+
+            <div className="flex items-center flex-wrap gap-2">
+              <div className="flex items-center bg-white p-0.5 rounded-lg border border-indigo-200">
+                {[2, 3].map((h) => (
+                  <button
+                    key={h}
+                    onClick={() => handleChangeHops(h)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
+                      hopCount === h
+                        ? "bg-indigo-600 text-white"
+                        : "text-slate-600 hover:text-indigo-700"
+                    }`}
+                  >
+                    {h} Hops
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => {
+                  const target = displayedGraph.nodes.find((n) => n.id === focusedTopicMeta.id);
+                  if (target) setSelectedNode(target);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-100 border border-indigo-200 font-semibold text-indigo-700 transition"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                Theory Card
+              </button>
+
+              <button
+                onClick={handleClearTopicFocus}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 font-semibold text-slate-700 transition"
+              >
+                <X className="w-3.5 h-3.5" />
+                Exit Focus
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Stats Bar */}
       {graphData && (
         <div className="flex items-center justify-between text-xs px-2 text-slate-500">
@@ -484,8 +762,10 @@ export const SubjectGraphPage: React.FC = () => {
         <NodeDetailPanel
           node={selectedNode}
           onClose={() => setSelectedNode(null)}
-          connectedEdgeCount={selectedNodeEdgeCount}
+          connectedEdgeCount={selectedNodeConnectedChips.length}
+          connectedLinks={selectedNodeConnectedChips}
           onFocusCluster={(cid) => handleClusterSelect(cid)}
+          onFocusTopic={handleFocusConnectedTopic}
         />
 
         <LinkDetailPanel

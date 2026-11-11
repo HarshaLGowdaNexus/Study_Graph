@@ -8,12 +8,23 @@ import {
   AlertCircle,
   Network,
   Share2,
+  Tag,
+  Crosshair,
 } from "lucide-react";
+
+export interface ConnectedConceptChip {
+  edgeId: string;
+  targetTopicId: string;
+  targetKeyword: string;
+  type: string;
+  strength: number;
+}
 
 export interface GraphNodeData {
   id: string;
   name: string;
   keyword: string;
+  aliases?: string[];
   explanation: string;
   real_world_use?: string;
   module_no?: number;
@@ -23,6 +34,8 @@ export interface GraphNodeData {
   parent_cluster_label?: string;
   subject_id?: string;
   subject_name?: string;
+  hop_distance?: number;
+  is_focus?: boolean;
   x?: number;
   y?: number;
   val?: number; // node degree
@@ -32,26 +45,47 @@ interface NodeDetailPanelProps {
   node: GraphNodeData | null;
   onClose: () => void;
   connectedEdgeCount?: number;
+  connectedLinks?: ConnectedConceptChip[];
   onFocusCluster?: (clusterId: string) => void;
+  onFocusTopic?: (topicId: string) => void;
 }
 
 export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
   node,
   onClose,
   connectedEdgeCount = 0,
+  connectedLinks = [],
   onFocusCluster,
+  onFocusTopic,
 }) => {
   if (!node) return null;
 
+  const aliases = Array.isArray(node.aliases) ? node.aliases.filter(Boolean) : [];
+
   return (
-    <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white border-l border-slate-200 shadow-2xl z-30 flex flex-col transform transition-transform duration-300 ease-out">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white border-l border-slate-200 shadow-2xl z-40 flex flex-col transform transition-transform duration-300 ease-out">
       {/* Header */}
       <div className="p-5 border-b border-slate-100 flex items-start justify-between bg-slate-50">
         <div className="space-y-1.5 pr-2">
           <div className="flex items-center gap-2 flex-wrap">
+            {node.subject_name && (
+              <span className="px-2 py-0.5 text-xs font-semibold rounded bg-slate-200/80 text-slate-700">
+                {node.subject_name}
+              </span>
+            )}
             <span className="px-2 py-0.5 text-xs font-bold rounded bg-indigo-100 text-indigo-700">
               Module {node.module_no || 1}
             </span>
+            {node.hop_distance === 0 || node.is_focus ? (
+              <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded bg-amber-100 text-amber-800 border border-amber-200">
+                <Crosshair className="w-3 h-3 text-amber-600" />
+                Focused Topic
+              </span>
+            ) : typeof node.hop_distance === "number" ? (
+              <span className="px-2 py-0.5 text-xs font-semibold rounded bg-cyan-100 text-cyan-800">
+                {node.hop_distance} {node.hop_distance === 1 ? "hop" : "hops"} away
+              </span>
+            ) : null}
             {node.reviewed ? (
               <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded bg-emerald-100 text-emerald-800">
                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -71,6 +105,24 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
             <Layers className="w-3.5 h-3.5 text-slate-400" />
             <span>{node.parent_cluster_label || node.cluster_label || "General"}</span>
           </div>
+
+          {/* Merged Aliases */}
+          {aliases.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                <Tag className="w-3 h-3 text-amber-500" />
+                Aliases:
+              </span>
+              {aliases.map((alias) => (
+                <span
+                  key={alias}
+                  className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-medium"
+                >
+                  {alias}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <button
@@ -108,7 +160,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
           </div>
         )}
 
-        {/* Graph Connectivity Statistics */}
+        {/* Graph Connectivity Statistics & Quick Jump Chips */}
         <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-3">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
             <span className="flex items-center gap-1.5">
@@ -126,6 +178,27 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
               {node.cluster_label || "Unclustered"}
             </span>
           </div>
+
+          {connectedLinks.length > 0 && (
+            <div className="pt-2 border-t border-slate-200/70 space-y-1.5">
+              <div className="text-[11px] font-semibold text-slate-500">
+                Jump to Connected Concept:
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {connectedLinks.slice(0, 8).map((chip) => (
+                  <button
+                    key={chip.edgeId}
+                    type="button"
+                    onClick={() => onFocusTopic?.(chip.targetTopicId)}
+                    className="px-2 py-1 rounded-lg bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-[11px] font-semibold text-slate-700 hover:text-indigo-700 transition text-left"
+                    title={`${chip.type.replace(/_/g, " ")} (Strength ${chip.strength})`}
+                  >
+                    {chip.targetKeyword}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {node.cluster_id && onFocusCluster && (
             <button

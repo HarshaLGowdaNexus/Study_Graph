@@ -7,11 +7,12 @@ Relies on:
   - RULEBOOK Rule 11: Privacy / User Isolation (queries filtered by student user_id).
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 import psycopg2.extras
 
 from backend.app.api.deps import CurrentUser, get_current_user
+from backend.app.core.config import settings
 from backend.app.database import get_db_cursor
 from backend.app.schemas.topic import (
     BulkReviewActionResponse,
@@ -19,6 +20,7 @@ from backend.app.schemas.topic import (
     TopicReviewItem,
     TopicUpdateRequest,
 )
+from backend.app.services.graph_service import graph_service
 
 router = APIRouter(tags=["Topics"])
 
@@ -42,6 +44,25 @@ def list_topics(
         query += " ORDER BY t.keyword ASC LIMIT 300;"
         cur.execute(query, tuple(params))
         return cur.fetchall() or []
+
+
+@router.get("/topics/search", summary="Search topics by keyword or merged alias")
+def search_topics(
+    q: str = Query(..., min_length=1, max_length=120, description="Keyword or alias search text"),
+    subject_id: Optional[str] = Query(None, description="Optional subject filter"),
+    limit: int = Query(settings.GRAPH_SEARCH_MAX_SUGGESTIONS, ge=1, le=50),
+    current_user: CurrentUser = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    """
+    Autocomplete search matching both canonical topic keywords and merged topic_aliases.
+    Enforces student privacy isolation (Rule 11).
+    """
+    return graph_service.search_topics(
+        user_id=current_user.id,
+        query=q,
+        subject_id=subject_id,
+        limit=limit,
+    )
 
 
 @router.get("/documents/{document_id}/topics", response_model=TopicListResponse)
