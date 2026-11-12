@@ -31,22 +31,21 @@ link_id,source_topic,target_topic,relation_type,looks_correct,comment
 30,Multiprocessor Systems,Computer System Bus Architecture,applies_in,yes,Multiprocessor systems rely on underlying computer system bus architectures where multiple CPUs and device controllers c
 31,Direct Memory Access,Device Controller and Driver,applies_in,yes,Direct Memory Access (DMA) is utilized by device controllers to facilitate bulk data transfers directly to memory withou
 32,Secondary Storage,Electronic Disk and Volatility,part_of,yes,"Electronic disks serve as components within the broader storage hierarchy of secondary storage, distinguishing between v"
-33,,,,,
-34,,,,,
-35,,,,,
-36,,,,,
-37,,,,,
-38,,,,,
-39,,,,,
-40,,,,,
-41,,,,,
-42,,,,,
-43,,,,,
-44,,,,,
-45,,,,,
-46,,,,,
-47,,,,,
-48,,,,,
-49,,,,,
-50,,,,,
-
+33,System Views of Operating System,System Protection and Security,part_of,yes,System protection and security mechanisms are fundamental components of OS system views
+34,Computer System Components,Operating System,part_of,yes,The Operating System is explicitly identified as one of the four main computer system components
+35,Memory Management,Process Management,contrasts_with,yes,Memory management and process management are core coordinating subsystems with distinct responsibilities
+36,Interrupt-Driven Operations,System Call,example_of,yes,A system call is a specific software-triggered mechanism that initiates interrupt handling
+37,User Views of Operating Systems,System Views of Operating Systems,contrasts_with,yes,User Views and System Views represent the two dual perspectives of operating systems
+38,Virtual Machines,Dual Mode of Operation,applies_in,yes,Virtual machines leverage the underlying hardware dual mode operation
+39,Discovery Protocol,Peer-to-Peer Computing,applies_in,yes,A discovery protocol is required within peer-to-peer computing networks to locate decentralized nodes
+40,Client-Server Computing,Peer-to-Peer Computing,contrasts_with,yes,Client-server computing and peer-to-peer computing represent opposing architectural network topologies
+41,Computer Networks,Evolution of Computer Networks,prerequisite_of,yes,Understanding computer network definitions is a prerequisite for studying network evolution
+42,Computer Networks,Network Applications,applies_in,yes,Network applications rely directly on foundational computer network protocols
+43,User Views of Operating System,System Views of Operating Systems,contrasts_with,yes,User views and system views represent complementary perspectives of OS functionality
+44,Process Management,Operating System,part_of,yes,Process management is an essential functional subsystem of an operating system
+45,Storage Hierarchy,Secondary Storage,part_of,yes,Secondary storage represents the non-volatile tier within the computer storage hierarchy
+46,Multiprogramming,Operating System,applies_in,yes,Multiprogramming is a core operational capability provided by modern operating systems
+47,Interrupt Handling,Direct Memory Access,contrasts_with,yes,Interrupt handling involves CPU execution cycles whereas DMA transfers data without CPU overhead
+48,Dual-Mode Operation,System Call,applies_in,yes,System calls invoke hardware mode switches between user mode and kernel mode
+49,Peer-to-Peer Computing,Computer Networks,part_of,yes,Peer-to-peer computing is a distributed application architecture operating over computer networks
+50,Process Control Block (PCB),Process Management,part_of,yes,The Process Control Block is the primary data structure used by the OS for process management

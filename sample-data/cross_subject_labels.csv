@@ -1,0 +1,10 @@
+id,source_topic,source_subject,target_topic,target_subject,relation_type,strength,faculty_agrees,faculty_comment
+1,Operating System,Operating Systems,System Software,Software engineering and project management,example_of,5,yes,"Core conceptual hierarchy: Operating systems are the premier archetype of system software."
+2,Distributed Systems,Operating Systems,Computer Networks,computer network,applies_in,5,yes,"Direct architectural dependency: Distributed operating systems require computer network routing to share resources."
+3,Client-Server System,Operating Systems,Network Applications,computer network,applies_in,4,yes,"Foundational distributed design pattern: Network applications run as client-server processes over OS sockets."
+4,Peer-to-Peer Computing,Operating Systems,Computer Networks,computer network,part_of,4,yes,"Decentralized architecture: P2P overlay networks operate across interconnected computer network nodes."
+5,Socket,Computer Networks,File Descriptor,Operating Systems,applies_in,5,yes,"Direct, essential connection: Unix/POSIX treats network sockets as file descriptors; core syllabus crossover."
+6,TCP Handshake,Computer Networks,Process Synchronization,Operating Systems,part_of,4,yes,"State coordination and three-way synchronization share foundational concurrency mechanisms."
+7,Network Interface Card (NIC),Computer Networks,Direct Memory Access (DMA),Operating Systems,applies_in,5,yes,"Hardware networking cards use DMA engines to move packet frames into host memory without CPU intervention."
+8,Virtual Networks & VLANs,Computer Networks,Virtual Memory & Paging,Operating Systems,example_of,4,yes,"Both represent textbook abstraction paradigms decoupling logical addressing spaces from underlying physical resources."
+9,Client-Server Architecture,Computer Networks,Inter-Process Communication,Operating Systems,applies_in,5,yes,"Network sockets are the distributed extension of Unix IPC mechanisms like pipes and message queues."

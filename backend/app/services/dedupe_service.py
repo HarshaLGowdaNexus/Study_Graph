@@ -331,6 +331,51 @@ class DedupeService:
                 (json.dumps(combined_variants), combined_syl_id, combined_locked, str(surviving_topic_id)),
             )
 
+            # 5b. Re-wire edges connected to merged_topic_id to prevent valid links from being lost by CASCADE
+            cursor.execute(
+                """
+                DELETE FROM edges
+                WHERE (topic_a = %s AND topic_b = %s) OR (topic_a = %s AND topic_b = %s);
+                """,
+                (str(surviving_topic_id), str(merged_topic_id), str(merged_topic_id), str(surviving_topic_id)),
+            )
+
+            cursor.execute(
+                "SELECT id, topic_b FROM edges WHERE topic_a = %s",
+                (str(merged_topic_id),),
+            )
+            for edge_row in cursor.fetchall():
+                other_topic = str(edge_row["topic_b"])
+                cursor.execute(
+                    """
+                    SELECT id FROM edges 
+                    WHERE (topic_a = %s AND topic_b = %s) OR (topic_a = %s AND topic_b = %s)
+                    """,
+                    (str(surviving_topic_id), other_topic, other_topic, str(surviving_topic_id)),
+                )
+                if cursor.fetchone():
+                    cursor.execute("DELETE FROM edges WHERE id = %s", (edge_row["id"],))
+                else:
+                    cursor.execute("UPDATE edges SET topic_a = %s WHERE id = %s", (str(surviving_topic_id), edge_row["id"]))
+
+            cursor.execute(
+                "SELECT id, topic_a FROM edges WHERE topic_b = %s",
+                (str(merged_topic_id),),
+            )
+            for edge_row in cursor.fetchall():
+                other_topic = str(edge_row["topic_a"])
+                cursor.execute(
+                    """
+                    SELECT id FROM edges 
+                    WHERE (topic_a = %s AND topic_b = %s) OR (topic_a = %s AND topic_b = %s)
+                    """,
+                    (str(surviving_topic_id), other_topic, other_topic, str(surviving_topic_id)),
+                )
+                if cursor.fetchone():
+                    cursor.execute("DELETE FROM edges WHERE id = %s", (edge_row["id"],))
+                else:
+                    cursor.execute("UPDATE edges SET topic_b = %s WHERE id = %s", (str(surviving_topic_id), edge_row["id"]))
+
             # 6. Delete merged topic (CASCADE cleans up old topic_sources and topic_aliases for merged_topic_id)
             cursor.execute("DELETE FROM topics WHERE id = %s", (str(merged_topic_id),))
 

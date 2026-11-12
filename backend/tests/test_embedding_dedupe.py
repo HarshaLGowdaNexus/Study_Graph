@@ -243,6 +243,10 @@ def test_merge_execution_and_split_cycle():
             [{"chunk_id": str(chunk_1)}, {"chunk_id": str(chunk_2)}],
             # 3. Fetch existing aliases for topic_b
             [],
+            # 4. Fetch edges where topic_a = topic_b
+            [],
+            # 5. Fetch edges where topic_b = topic_b
+            [],
         ]
         mock_cursor.fetchone.return_value = {"id": str(merge_id)}
 

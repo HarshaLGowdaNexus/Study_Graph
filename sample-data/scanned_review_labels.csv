@@ -1,0 +1,29 @@
+page_id,document_name,page_no,ground_truth_topic,extracted_topic,is_correct,reviewer_comment
+1,cn_mod1_scanned_notes.pdf,1,Network Topologies,Network Topologies,yes,Correctly read Star and Mesh topology diagram notes
+2,cn_mod1_scanned_notes.pdf,2,Coaxial Cable vs Twisted Pair,Coaxial Cable & Twisted Pair,yes,Identified physical media comparison table
+3,cn_mod1_scanned_notes.pdf,3,Transmission Modes,Transmission Modes (Simplex/Duplex),yes,Handwritten simplex half-duplex full-duplex recognized
+4,cn_mod1_scanned_notes.pdf,4,OSI Model Layers,OSI Model Layers,yes,7 layer handwritten vertical diagram extracted
+5,cn_mod1_scanned_notes.pdf,5,Data Encapsulation,Data Encapsulation,yes,Header and trailer wrapping diagram accurately parsed
+6,cn_mod1_scanned_notes.pdf,6,Physical vs Logical Topology,Physical vs Logical Topology,yes,Extracted handwritten bullet points on logical bus
+7,cn_mod1_scanned_notes.pdf,7,Bandwidth and Latency,Bandwidth vs Latency,yes,Formulas and metric definitions extracted
+8,cn_mod1_scanned_notes.pdf,8,Guided vs Unguided Media,Guided vs Unguided Media,yes,Radio wave vs copper wiring comparison
+9,os_mod1_handwritten_diagrams.jpg,1,Process State Transition,Process State Transitions,yes,Handwritten 5-state process diagram correctly read
+10,sample_handwritten_diagram.png,1,Client-Server Socket Architecture,Client-Server Socket Model,yes,Handwritten socket listen accept loop diagram
+11,cn_mod1_scanned_notes.pdf,1,Star Topology Hubs,Hubs in Star Topology,yes,Sub-concept captured
+12,cn_mod1_scanned_notes.pdf,2,Attenuation in Copper,Copper Wire Attenuation,yes,Signal drop notes
+13,cn_mod1_scanned_notes.pdf,3,Full Duplex Example,Telephone Network Example,no,Ove-extracted illustrative margin scribbled example
+14,cn_mod1_scanned_notes.pdf,4,Presentation Layer Compression,Data Compression,yes,Captured layer role
+15,cn_mod1_scanned_notes.pdf,5,Frame Check Sequence,CRC Frame Check,yes,Trailer error checking notes
+16,cn_mod1_scanned_notes.pdf,6,Token Ring Protocol,Token Ring Protocol,yes,Historical logical ring notes
+17,cn_mod1_scanned_notes.pdf,7,Propagation Delay Formula,Propagation Delay,yes,Formula d/s extracted cleanly
+18,cn_mod1_scanned_notes.pdf,8,Fiber Optic Total Internal Reflection,Total Internal Reflection,yes,Diagram of light reflection in glass core
+19,os_mod1_handwritten_diagrams.jpg,1,PCB State Pointer,PCB Pointer,yes,Arrow pointing from PCB to state table
+20,sample_handwritten_diagram.png,1,TCP Port Binding,Port Binding,yes,Port 80/8080 binding note
+21,cn_mod1_scanned_notes.pdf,1,Mesh Topology Redundancy,Mesh Redundancy,yes,Fault tolerance benefit
+22,cn_mod1_scanned_notes.pdf,2,UTP Categories (Cat5e),Cat5e Specifications,yes,Table of speeds
+23,cn_mod1_scanned_notes.pdf,3,Simplex TV Broadcast,TV Broadcast Example,no,Extracted trivial real-world margin scribble
+24,cn_mod1_scanned_notes.pdf,4,Session Layer Checkpointing,Session Checkpointing,yes,Recovery point notes
+25,cn_mod1_scanned_notes.pdf,5,PDU Naming Convention,PDU Terminology,yes,Bit/Frame/Packet/Segment hierarchy
+26,os_mod1_handwritten_diagrams.jpg,1,Zombie Process State,Zombie Process,yes,Handwritten note on terminated state without wait()
+27,sample_handwritten_diagram.png,1,Handwritten Scribble Arrow,Arrow Marker,no,Mistook margin line marker for topic concept
+
