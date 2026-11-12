@@ -16,6 +16,7 @@ from backend.app.api.deps import CurrentUser, get_current_user
 from backend.app.core.config import settings
 from backend.app.database import get_db_cursor
 from backend.app.services.cluster_service import cluster_service
+from backend.app.services.demo_service import demo_service
 from backend.app.services.graph_service import graph_service
 from backend.app.services.synthetic_graph_service import synthetic_graph_service
 
@@ -56,7 +57,7 @@ def get_cross_subject_benchmark_graph() -> Dict[str, Any]:
 
 
 @router.get("/graphs/cross-subject")
-async def get_cross_subject_graph(
+def get_cross_subject_graph(
     fresh: bool = Query(False, description="Force recompile instead of cache hit"),
     demo: bool = Query(False, description="Return multi-subject benchmark graph for demo/testing"),
     current_user: CurrentUser = Depends(get_current_user),
@@ -65,19 +66,23 @@ async def get_cross_subject_graph(
     Returns the holistic multi-subject graph linking concepts across all subjects
     belonging to the authenticated student.
     """
-    if demo:
-        return synthetic_graph_service.generate_cross_subject_benchmark()
+    if demo or demo_service.is_demo_mode():
+        return demo_service.get_frozen_graph()
 
     cache_key = f"cross_subject:{current_user.id}"
-    if fresh:
-        res = graph_service.refresh_and_cache_graph(user_id=current_user.id)
-    else:
-        res = graph_service.get_cached_graph(cache_key=cache_key, user_id=current_user.id)
+    try:
+        if fresh:
+            res = graph_service.refresh_and_cache_graph(user_id=current_user.id)
+        else:
+            res = graph_service.get_cached_graph(cache_key=cache_key, user_id=current_user.id)
+    except Exception as exc:
+        # Fallback to frozen demo snapshot if database is offline (R17)
+        return demo_service.get_frozen_graph()
 
     # If the student's database currently has fewer than 2 subjects or 0 cross-subject links,
     # seamlessly provide the rich multi-subject benchmark so the 3D playground is immediately interactive
     if not res.get("nodes") or not res.get("subjects") or len(res.get("subjects", [])) < 2 or res.get("stats", {}).get("cross_subject_links", 0) == 0:
-        return synthetic_graph_service.generate_cross_subject_benchmark()
+        return demo_service.get_frozen_graph()
 
     return res
 
@@ -96,6 +101,7 @@ def get_graph_config() -> Dict[str, Any]:
         "max_search_hops": settings.GRAPH_SEARCH_MAX_HOPS,
         "max_visible_nodes": settings.GRAPH_MAX_VISIBLE_NODES,
         "weak_link_threshold": settings.GRAPH_WEAK_LINK_THRESHOLD,
+        "offline_demo_mode": settings.OFFLINE_DEMO_MODE,
     }
 
 

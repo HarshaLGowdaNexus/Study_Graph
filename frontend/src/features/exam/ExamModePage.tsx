@@ -167,7 +167,7 @@ export const ExamModePage: React.FC = () => {
   const fetchOverview = async (subjectId: string, silent = false) => {
     if (!subjectId) return;
     if (!silent) setLoading(true);
-    setError(null);
+    if (!silent) setError(null);
     try {
       const res = await fetch(`/api/subjects/${subjectId}/exam/overview`, {
         headers: authHeaders(),
@@ -179,7 +179,7 @@ export const ExamModePage: React.FC = () => {
       const data: ExamOverview = await res.json();
       setOverview(data);
     } catch (err: any) {
-      setError(err.message || "Failed to load Exam Mode data.");
+      if (!silent) setError(err.message || "Failed to load Exam Mode data.");
     } finally {
       if (!silent) setLoading(false);
     }

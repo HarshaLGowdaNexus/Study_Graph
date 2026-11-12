@@ -1,0 +1,5 @@
+Topic: TLS 1.3 Handshake Optimization & Zero Round-Trip Time (0-RTT)
+Course: Computer Networks - Module 2 (Advanced Transport)
+Summary: TLS 1.3 reduces the standard cryptographic handshake from 2 round-trips to 1 RTT by combining key exchange with authentication parameters. Pre-shared keys enable 0-RTT resumption.
+Real-World Use: Powers modern HTTPS web encryption in Chrome and Cloudflare for instant secure page loads.
+Cross-Domain Link: Directly couples Transport Layer socket state with Operating System cryptographic entropy pools.

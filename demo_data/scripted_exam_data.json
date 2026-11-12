@@ -1,0 +1,64 @@
+{
+  "status": "success",
+  "mode": "grounded_papers",
+  "message": "Loaded 3 uploaded previous-year papers and verified graph importance.",
+  "important_concepts": [
+    {
+      "topic_id": "t-demo-1",
+      "topic_name": "TCP Three-Way Handshake & State Transition",
+      "importance_score": 0.98,
+      "frequency": 4,
+      "reason": "Central hub connecting Transport Layer, Socket API, and Process Synchronization."
+    },
+    {
+      "topic_id": "t-demo-2",
+      "topic_name": "Process Control Block & Context Switching",
+      "importance_score": 0.95,
+      "frequency": 3,
+      "reason": "Crucial bridge between CPU Scheduling and Virtual Memory management."
+    },
+    {
+      "topic_id": "t-demo-3",
+      "topic_name": "Deadlock Characterization & Banker's Algorithm",
+      "importance_score": 0.92,
+      "frequency": 3,
+      "reason": "Repeated across 2023, 2024, and 2025 university end-semester papers."
+    },
+    {
+      "topic_id": "t-demo-4",
+      "topic_name": "ACID Properties & Two-Phase Locking (2PL)",
+      "importance_score": 0.89,
+      "frequency": 3,
+      "reason": "Foundational cross-subject link between DBMS concurrency and OS Mutual Exclusion."
+    }
+  ],
+  "repeated_questions": [
+    {
+      "canonical_question": "Explain the four necessary conditions for deadlock to occur and how Banker's algorithm prevents unsafe states.",
+      "years_asked": [
+        2022,
+        2023,
+        2024
+      ],
+      "frequency": 3,
+      "marks_typical": 10,
+      "ideal_answer_2_marks": "Deadlock requires Mutual Exclusion, Hold & Wait, No Preemption, and Circular Wait. Banker's Algorithm tests if resource allocation guarantees a safe state.",
+      "ideal_answer_5_marks": "Deadlock requires 4 simultaneous Coffman conditions: 1. Mutual Exclusion (unsharable resource), 2. Hold and Wait (process holds 1 resource and requests another), 3. No Preemption (resources released only voluntarily), 4. Circular Wait (p0 waits for p1... pn waits for p0). Banker's Algorithm avoids this by simulating maximum claims and verifying a safe sequence exists before granting.",
+      "ideal_answer_10_marks": "1. Deadlock Definition: System state where every process in a set is waiting for an event caused only by another process in the set.\n2. The 4 Necessary Coffman Conditions: Detail Mutual Exclusion, Hold & Wait, No Preemption, and Circular Wait with resource allocation graphs.\n3. Banker's Algorithm Data Structures: Available[m], Max[n][m], Allocation[n][m], and Need[n][m] = Max - Allocation.\n4. Safety Algorithm: Find an index i such that Finish[i] == false and Need[i] <= Work. If such sequence exists for all processes, system is safe.\n5. Resource Request Algorithm: Only grants if Request <= Need and Request <= Available and state remains safe.",
+      "citation": "os_mod2_deadlocks_sync.pdf (Pages 5-8)"
+    },
+    {
+      "canonical_question": "Compare and contrast TCP and UDP protocols with respect to packet overhead, reliability, and flow control.",
+      "years_asked": [
+        2023,
+        2024
+      ],
+      "frequency": 2,
+      "marks_typical": 5,
+      "ideal_answer_2_marks": "TCP is connection-oriented, reliable with flow control (20-byte header). UDP is connectionless, best-effort without flow control (8-byte header).",
+      "ideal_answer_5_marks": "Comparison across connection state, reliability, ordering, header size (20 vs 8 bytes), flow/congestion control, and use cases (Web/Email vs Streaming/DNS).",
+      "ideal_answer_10_marks": "Comprehensive breakdown of TCP vs UDP state machines, sliding window mechanics, checksum computation, and protocol trade-offs.",
+      "citation": "cn_mod2_transport_layer.pdf (Pages 7-10)"
+    }
+  ]
+}

@@ -21,6 +21,7 @@ from backend.app.schemas.exam import (
     PaperDeleteResponse,
     PaperUploadResponse,
 )
+from backend.app.services.demo_service import demo_service
 from backend.app.services.exam_service import exam_service
 from backend.app.services.job_worker import process_document_job
 from backend.app.services.storage import storage_service
@@ -45,7 +46,19 @@ def get_exam_overview(
       2. Uploaded previous-year papers & repeated question clusters ('from your uploaded papers').
       3. An honest notice when no papers exist (Risk R05).
     """
-    return exam_service.get_exam_overview(subject_id=subject_id, user_id=current_user.id)
+    if demo_service.is_demo_mode():
+        demo_ov = demo_service.get_scripted_exam_overview(subject_id=subject_id)
+        if demo_ov:
+            return demo_ov
+
+    try:
+        return exam_service.get_exam_overview(subject_id=subject_id, user_id=current_user.id)
+    except Exception as exc:
+        logger.warning(f"[Exam API] Live exam query encountered error: {exc}. Falling back to offline demo snapshot.")
+        demo_ov = demo_service.get_scripted_exam_overview(subject_id=subject_id)
+        if demo_ov:
+            return demo_ov
+        raise
 
 
 @router.post(

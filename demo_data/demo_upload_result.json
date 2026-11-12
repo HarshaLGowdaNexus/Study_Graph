@@ -1,0 +1,24 @@
+{
+  "status": "success",
+  "document_id": "doc-demo-tls13",
+  "filename": "demo_upload_sample.txt",
+  "module_no": 2,
+  "topics_extracted": 1,
+  "new_topic": {
+    "name": "TLS 1.3 Handshake & 0-RTT Resumption",
+    "summary": "Cryptographic protocol streamlining key exchange into a single round trip to secure transport streams.",
+    "real_world_use": "Secures all modern HTTPS web browsing across Chrome, Edge, and iOS with sub-10ms overhead."
+  },
+  "new_links": [
+    {
+      "target_topic": "TCP Three-Way Handshake & State Transition",
+      "type": "extends",
+      "strength": 5,
+      "reason": "TLS 1.3 executes immediately atop the established TCP socket stream to negotiate cryptographic session keys.",
+      "industry_example": "Web browsers execute TCP handshake immediately followed by TLS 1.3 ClientHello.",
+      "source_snippet_1": "TLS 1.3 reduces cryptographic handshake by combining key exchange directly over TCP stream.",
+      "source_snippet_2": "TCP establishes the reliable byte stream socket before application security handshakes begin."
+    }
+  ],
+  "message": "Incremental processing completed in 1.4s (demo cached execution). 1 new topic and 1 cross-module link established."
+}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { UploadPage } from "./features/upload/UploadPage";
 import { LinkManager } from "./features/links/LinkManager";
 import { TheoryPage } from "./features/theory/TheoryPage";
@@ -6,10 +6,24 @@ import { ChatPage } from "./features/chat/ChatPage";
 import { ExamModePage } from "./features/exam/ExamModePage";
 import { SubjectGraphPage } from "./features/graph/SubjectGraphPage";
 import { CrossSubjectGraphPage } from "./features/cross_graph/CrossSubjectGraphPage";
-import { Upload, Network, BookOpen, ShieldCheck, MessageSquare, Share2, Globe, GraduationCap } from "lucide-react";
+import { Upload, Network, BookOpen, ShieldCheck, MessageSquare, Share2, Globe, GraduationCap, WifiOff } from "lucide-react";
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"cross_graph" | "graph" | "exam" | "chat" | "theory" | "links" | "upload">("cross_graph");
+  const [isOfflineDemo, setIsOfflineDemo] = useState<boolean>(false);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/api/graphs/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.offline_demo_mode) {
+          setIsOfflineDemo(true);
+        }
+      })
+      .catch(() => {
+        // If server is not responding on config or running offline
+      });
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -19,11 +33,17 @@ export const App: React.FC = () => {
             <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-sm">
               SG
             </div>
-            <div>
+            <div className="flex items-center">
               <span className="font-bold text-slate-900 tracking-tight text-lg">StudyGraph</span>
               <span className="text-xs text-indigo-600 font-medium ml-2 px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 rounded">
                 Semester Knowledge Engine
               </span>
+              {isOfflineDemo && (
+                <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded ml-2 flex items-center gap-1 shadow-xs">
+                  <WifiOff className="w-3 h-3 text-amber-600" />
+                  Offline Demo Mode
+                </span>
+              )}
             </div>
           </div>
 

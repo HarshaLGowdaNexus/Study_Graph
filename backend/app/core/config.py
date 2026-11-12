@@ -48,7 +48,7 @@ class Settings:
     EXTRACTION_MIN_TEXT_CHARS: int = int(os.getenv("EXTRACTION_MIN_TEXT_CHARS", "50"))
     # 0 means process all pages; set a positive integer to cap test runs
     EXTRACTION_MAX_TEST_PAGES: int = int(os.getenv("EXTRACTION_MAX_TEST_PAGES", "0"))
-    GEMINI_VISION_MODEL: str = os.getenv("GEMINI_VISION_MODEL", "gemini-3.5-flash")
+    GEMINI_VISION_MODEL: str = os.getenv("GEMINI_VISION_MODEL", "gemini-flash-lite-latest")
 
     # Topic Extraction Settings (Task T05, Decision D09)
     TOPIC_EXTRACTION_MODEL: str = os.getenv("TOPIC_EXTRACTION_MODEL", "gemini-flash-lite-latest")
@@ -85,7 +85,7 @@ class Settings:
     LINK_JUDGE_MAX_CANDIDATES_PER_BATCH: int = int(os.getenv("LINK_JUDGE_MAX_CANDIDATES_PER_BATCH", "10"))
 
     # Chatbot RAG Settings (Task T13, Decisions D09, D10, RULEBOOK 13.4, Feature F14, Risk R10)
-    CHAT_MODEL: str = os.getenv("CHAT_MODEL", "gemini-3.5-flash")
+    CHAT_MODEL: str = os.getenv("CHAT_MODEL", "gemini-flash-lite-latest")
     CHAT_TEMPERATURE: float = float(os.getenv("CHAT_TEMPERATURE", "0.2"))
     # Minimum retrieval cosine similarity (0.0 to 1.0) below which question is flagged "Not found in your notes"
     CHAT_CONFIDENCE_THRESHOLD: float = float(os.getenv("CHAT_CONFIDENCE_THRESHOLD", "0.60"))
@@ -111,8 +111,8 @@ class Settings:
     GRAPH_SEARCH_MAX_SUGGESTIONS: int = int(os.getenv("GRAPH_SEARCH_MAX_SUGGESTIONS", "10"))
 
     # Exam Mode Settings (Task T17, Decisions D09, D10, D11, Features F18-F20, Risks R05, R10)
-    EXAM_QUESTION_MODEL: str = os.getenv("EXAM_QUESTION_MODEL", "gemini-3.5-flash")
-    EXAM_CLUSTER_CONFIRM_MODEL: str = os.getenv("EXAM_CLUSTER_CONFIRM_MODEL", "gemini-3.5-flash-lite")
+    EXAM_QUESTION_MODEL: str = os.getenv("EXAM_QUESTION_MODEL", "gemini-flash-lite-latest")
+    EXAM_CLUSTER_CONFIRM_MODEL: str = os.getenv("EXAM_CLUSTER_CONFIRM_MODEL", "gemini-flash-lite-latest")
     EXAM_QUESTION_TEMPERATURE: float = float(os.getenv("EXAM_QUESTION_TEMPERATURE", "0.1"))
     # Cosine similarity threshold for candidate same-question pairs across uploaded papers
     EXAM_QUESTION_SIMILARITY_THRESHOLD: float = float(os.getenv("EXAM_QUESTION_SIMILARITY_THRESHOLD", "0.75"))
@@ -129,6 +129,13 @@ class Settings:
     SYLLABUS_AUTO_EXACT_THRESHOLD: float = float(os.getenv("SYLLABUS_AUTO_EXACT_THRESHOLD", "0.92"))
     # Tie-breaker boost applied to chunks matching the subject's preferred source_kind ('notes' or 'textbook')
     SOURCE_PREFERENCE_BOOST: float = float(os.getenv("SOURCE_PREFERENCE_BOOST", "0.08"))
+
+    # Offline Demo Mode Settings (Task T21, Risk R17, Quality Gate G10)
+    # When enabled, serves pre-cached local snapshots without external network/API dependencies.
+    # Strictly for presentation safety during live demos; defaults to False for normal study use.
+    OFFLINE_DEMO_MODE: bool = os.getenv("OFFLINE_DEMO_MODE", "false").lower() in ("true", "1", "yes")
+    DEMO_DATA_DIR: Path = ROOT_DIR / "demo_data"
+
 
 
 settings = Settings()

@@ -68,7 +68,13 @@ class ChatService:
         Calls Gemini Flash with backoff retries and extracts token usage (Rule 11).
         """
         client = self._get_client()
-        models_to_try = [self.model_name, "gemini-2.5-flash", "gemini-1.5-flash"]
+        models_to_try = [self.model_name, "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
+        # De-duplicate while preserving order
+        unique_models = []
+        for m in models_to_try:
+            if m and m not in unique_models:
+                unique_models.append(m)
+        models_to_try = unique_models
         last_error = None
 
         config = types.GenerateContentConfig(
@@ -287,7 +293,7 @@ class ChatService:
                 log_token_usage(
                     user_id=str(user_id),
                     operation="chat_message",
-                    model="gemini-1.5-flash",
+                    model=self.model_name,
                     prompt_tokens=gen_tokens.get("prompt_tokens", 0),
                     completion_tokens=gen_tokens.get("completion_tokens", 0),
                     subject_id=str(subject_id) if subject_id else None,
@@ -346,7 +352,7 @@ class ChatService:
                 log_token_usage(
                     user_id=str(user_id),
                     operation="chat_message",
-                    model="gemini-1.5-flash",
+                    model=self.model_name,
                     prompt_tokens=resp_tokens.get("prompt_tokens", 0),
                     completion_tokens=resp_tokens.get("completion_tokens", 0),
                     subject_id=str(subject_id) if subject_id else None,

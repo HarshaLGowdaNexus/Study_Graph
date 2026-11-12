@@ -11,7 +11,7 @@ Relies on:
 
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from backend.app.api.deps import CurrentUser, get_current_user
 from backend.app.schemas.chat import (
@@ -20,6 +20,7 @@ from backend.app.schemas.chat import (
     ChatHistoryResponse,
 )
 from backend.app.services.chat_service import ChatService
+from backend.app.services.demo_service import demo_service
 
 logger = logging.getLogger(__name__)
 
@@ -53,13 +54,30 @@ def ask_chat_question(
     logger.info(
         f"[Chat API] User {current_user.id} asking question in subject {subject_id}: '{request.question[:60]}...'"
     )
-    service = ChatService()
-    return service.ask_question(
-        user_id=current_user.id,
-        subject_id=subject_id,
-        question=request.question,
-        marks=request.marks,
-    )
+    # Check offline demo fallback (R17, G10)
+    if demo_service.is_demo_mode():
+        cached_answer = demo_service.get_scripted_chat_answer(request.question, subject_id=subject_id)
+        if cached_answer:
+            return cached_answer
+
+    try:
+        service = ChatService()
+        return service.ask_question(
+            user_id=current_user.id,
+            subject_id=subject_id,
+            question=request.question,
+            marks=request.marks,
+        )
+    except Exception as exc:
+        logger.warning(f"[Chat API] Failed to query live chat service: {exc}. Attempting offline demo fallback.")
+        if demo_service.is_demo_mode():
+            cached_answer = demo_service.get_scripted_chat_answer(request.question, subject_id=subject_id)
+            if cached_answer:
+                return cached_answer
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to generate study answer from notes: {str(exc)}",
+        )
 
 
 @router.get(

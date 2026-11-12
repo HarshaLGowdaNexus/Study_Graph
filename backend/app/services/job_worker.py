@@ -119,7 +119,7 @@ async def process_document_job(document_id: str, user_id: str) -> None:
             log_token_usage(
                 user_id=user_id,
                 operation="vision_ocr",
-                model="gemini-1.5-flash",
+                model=settings.GEMINI_VISION_MODEL,
                 prompt_tokens=int(extraction_result.total_tokens * 0.75),
                 completion_tokens=int(extraction_result.total_tokens * 0.25),
                 subject_id=subject_id,
@@ -180,7 +180,7 @@ async def process_document_job(document_id: str, user_id: str) -> None:
             log_token_usage(
                 user_id=user_id,
                 operation="topic_extraction",
-                model="gemini-1.5-flash",
+                model=settings.GEMINI_VISION_MODEL,
                 prompt_tokens=topic_result.token_usage.get("prompt_tokens", 0),
                 completion_tokens=topic_result.token_usage.get("completion_tokens", 0),
                 subject_id=subject_id,
@@ -253,7 +253,7 @@ async def process_document_job(document_id: str, user_id: str) -> None:
                     log_token_usage(
                         user_id=user_id,
                         operation="link_judging",
-                        model="gemini-1.5-flash",
+                        model=settings.GEMINI_VISION_MODEL,
                         prompt_tokens=judge_batch.token_usage.get("prompt_tokens", 0),
                         completion_tokens=judge_batch.token_usage.get("completion_tokens", 0),
                         subject_id=subject_id,

@@ -15,6 +15,7 @@ from backend.app.core.config import settings
 from backend.app.database import get_db_cursor
 from backend.app.services.job_worker import process_document_job
 from backend.app.services.storage import storage_service
+from backend.app.services.demo_service import demo_service
 
 router = APIRouter()
 
@@ -62,22 +63,36 @@ class UploadResponse(BaseModel):
 async def list_subjects(current_user: CurrentUser = Depends(get_current_user)):
     """
     Lists all subjects belonging to the authenticated student.
+    In offline demo mode, falls back to the frozen multi-subject dataset (R17, G10).
     """
-    with get_db_cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT id, name, source_preference 
-            FROM subjects 
-            WHERE user_id = %s 
-            ORDER BY name ASC;
-            """,
-            (current_user.id,),
-        )
-        rows = cursor.fetchall()
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, name, source_preference 
+                FROM subjects 
+                WHERE user_id = %s 
+                ORDER BY name ASC;
+                """,
+                (current_user.id,),
+            )
+            rows = cursor.fetchall()
+            if rows:
+                return [
+                    SubjectResponse(id=str(row[0]), name=row[1], source_preference=row[2])
+                    for row in rows
+                ]
+    except Exception:
+        pass
+
+    if demo_service.is_demo_mode():
+        frozen_subs = demo_service.get_frozen_graph().get("subjects", [])
         return [
-            SubjectResponse(id=str(row[0]), name=row[1], source_preference=row[2])
-            for row in rows
+            SubjectResponse(id=s["id"], name=s["name"], source_preference="notes")
+            for s in frozen_subs
         ]
+
+    return []
 
 
 @router.post("/subjects", response_model=SubjectResponse, status_code=status.HTTP_201_CREATED)
@@ -118,6 +133,20 @@ async def upload_document(
     Validates uploaded notes, saves file into cloud storage,
     records a queued document in PostgreSQL, and starts the background job.
     """
+    filename = file.filename or "uploaded_file"
+
+    # Fast-path for live presentation demo note (Risk R17, docs/DEMO_SCRIPT.md Step 3)
+    if demo_service.is_demo_mode() and demo_service.is_demo_upload_file(filename):
+        cached_result = demo_service.get_demo_upload_result()
+        return UploadResponse(
+            id=cached_result.get("document_id", "doc-demo-tls13"),
+            filename=filename,
+            status="completed",
+            module_no=module_no,
+            storage_path=f"demo/{filename}",
+            message=cached_result.get("message", "Incremental upload simulated instantly in offline demo mode."),
+        )
+
     # 1. Verify subject belongs to the current user (Privacy rule)
     with get_db_cursor() as cursor:
         cursor.execute(
@@ -203,7 +232,20 @@ async def get_document_status(
     """
     Exposes document status for real-time frontend polling.
     Enforces privacy: Student can only view documents in subjects they own.
+    Supports instant status reporting for demo documents.
     """
+    if document_id.startswith("doc-demo") or (demo_service.is_demo_mode() and "demo" in document_id.lower()):
+        return DocumentStatusResponse(
+            id=document_id,
+            filename="demo_upload_sample.txt",
+            status="completed",
+            module_no=2,
+            storage_path="demo/demo_upload_sample.txt",
+            summary="TLS 1.3 Handshake & 0-RTT Resumption",
+            topic_count=1,
+            unreviewed_count=0,
+        )
+
     with get_db_cursor() as cursor:
         cursor.execute(
             """

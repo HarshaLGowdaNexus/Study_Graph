@@ -329,7 +329,9 @@ class ExamService:
 
         try:
             client = self._get_client()
-            models_to_try = [self.extraction_model, "gemini-2.5-flash", "gemini-1.5-flash"]
+            models_to_try = [self.extraction_model, "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
+            # Filter duplicates
+            models_to_try = [m for idx, m in enumerate(models_to_try) if m and m not in models_to_try[:idx]]
             config = types.GenerateContentConfig(
                 temperature=self.temperature,
                 system_instruction=EXAM_QUESTION_EXTRACTION_PROMPT,
@@ -383,7 +385,8 @@ class ExamService:
         )
         try:
             client = self._get_client()
-            models_to_try = [self.confirm_model, "gemini-2.5-flash", "gemini-1.5-flash"]
+            models_to_try = [self.confirm_model, "gemini-flash-lite-latest", "gemini-3.1-flash-lite"]
+            models_to_try = [m for idx, m in enumerate(models_to_try) if m and m not in models_to_try[:idx]]
             config = types.GenerateContentConfig(
                 temperature=0.0,
                 system_instruction=EXAM_QUESTION_PAIR_CONFIRM_PROMPT,
