@@ -22,6 +22,7 @@ class CitationItem(BaseModel):
     page: int = Field(..., description="1-based page number where the fact appears")
     snippet: str = Field(..., description="Verbatim text excerpt from the note supporting the answer")
     similarity: float = Field(0.0, description="Vector cosine similarity of retrieved chunk (0.0 to 1.0)")
+    source_kind: Optional[str] = Field(None, description="Source kind used: 'notes' or 'textbook'")
 
 
 class ChatAskRequest(BaseModel):
@@ -55,6 +56,10 @@ class ChatAnswerResponse(BaseModel):
     answered_from: Literal["notes", "general"] = Field(
         ...,
         description="'notes' if answered with confidence from notes; 'general' if flagged 'Not found in your notes'",
+    )
+    active_source_preference: Optional[Literal["notes", "textbook"]] = Field(
+        default=None,
+        description="Subject source preference ('notes' or 'textbook') active during retrieval",
     )
     confidence: float = Field(
         ...,

@@ -299,3 +299,46 @@ async def list_subject_documents(
             )
             for row in rows
         ]
+
+
+@router.post("/documents/{document_id}/retry", response_model=UploadResponse, status_code=status.HTTP_200_OK)
+async def retry_document_processing(
+    document_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Re-queues a document that got interrupted (stuck in 'extracting') or failed,
+    so the student never has to re-upload the file.
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT d.id, d.filename, d.module_no, d.storage_path
+            FROM documents d
+            JOIN subjects s ON d.subject_id = s.id
+            WHERE d.id = %s AND s.user_id = %s;
+            """,
+            (document_id, current_user.id),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found or access denied.",
+            )
+        doc_id, filename, module_no, storage_path = row
+        cursor.execute(
+            "UPDATE documents SET status = 'queued', error_message = NULL WHERE id = %s;",
+            (document_id,),
+        )
+
+    background_tasks.add_task(process_document_job, str(doc_id), current_user.id)
+    return UploadResponse(
+        id=str(doc_id),
+        filename=filename,
+        status="queued",
+        module_no=module_no or 1,
+        storage_path=storage_path or "",
+        message="Re-queued document for processing.",
+    )

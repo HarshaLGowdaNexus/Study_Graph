@@ -20,6 +20,7 @@ import { GraphCanvas, GraphCanvasHandle } from "./GraphCanvas";
 import { NodeDetailPanel, GraphNodeData, ConnectedConceptChip } from "./NodeDetailPanel";
 import { LinkDetailPanel, GraphLinkData } from "./LinkDetailPanel";
 import { TopicSearchBar } from "./TopicSearchBar";
+import { SyllabusModal } from "../syllabus/SyllabusModal";
 import {
   DEFAULT_GRAPH_CONFIG,
   GraphRuntimeConfig,
@@ -45,11 +46,21 @@ interface ClusterItem {
 interface GraphResponse {
   subject_id: string;
   subject_name: string;
+  source_preference?: "notes" | "textbook";
   nodes: GraphNodeData[];
   links: GraphLinkData[];
   clusters: ClusterItem[];
+  syllabus_coverage?: {
+    has_syllabus: boolean;
+    total_syllabus_topics: number;
+    covered_count: number;
+    gap_count: number;
+    coverage_percent: number;
+  };
   stats: {
     node_count: number;
+    real_node_count?: number;
+    ghost_node_count?: number;
     link_count: number;
     cluster_count: number;
     is_synthetic?: boolean;
@@ -94,6 +105,7 @@ export const SubjectGraphPage: React.FC = () => {
   // Selection state for side drawers
   const [selectedNode, setSelectedNode] = useState<GraphNodeData | null>(null);
   const [selectedLink, setSelectedLink] = useState<GraphLinkData | null>(null);
+  const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState(false);
 
   const canvasRef = useRef<GraphCanvasHandle>(null);
 
@@ -140,7 +152,7 @@ export const SubjectGraphPage: React.FC = () => {
     }
   };
 
-  const fetchSubjectGraph = async (subjectId: string) => {
+  const fetchSubjectGraph = async (subjectId: string, fresh = false) => {
     setLoading(true);
     setError(null);
     setSelectedNode(null);
@@ -150,7 +162,8 @@ export const SubjectGraphPage: React.FC = () => {
     setFocusedDbGraph(null);
 
     try {
-      const res = await fetch(`/api/graphs/${subjectId}`, { headers: authHeaders });
+      const url = fresh ? `/api/graphs/${subjectId}?fresh=true` : `/api/graphs/${subjectId}`;
+      const res = await fetch(url, { headers: authHeaders });
       if (!res.ok) throw new Error("Could not fetch cached graph for subject.");
       const data: GraphResponse = await res.json();
       setGraphData(data);
@@ -548,6 +561,29 @@ export const SubjectGraphPage: React.FC = () => {
             </div>
           )}
 
+          {/* Syllabus & Ghost Nodes Coverage Button (Task T18, F16) */}
+          {!isStressTestMode && selectedSubjectId && (
+            <button
+              type="button"
+              onClick={() => setIsSyllabusModalOpen(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                graphData?.syllabus_coverage?.has_syllabus
+                  ? "bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-indigo-600" />
+              {graphData?.syllabus_coverage?.has_syllabus ? (
+                <span>
+                  Syllabus: {graphData.syllabus_coverage.coverage_percent}% (
+                  {graphData.syllabus_coverage.gap_count} gaps)
+                </span>
+              ) : (
+                <span>Upload Syllabus (Ghost Nodes)</span>
+              )}
+            </button>
+          )}
+
           {/* Weak-link toggle (Rule 13.8) */}
           <button
             onClick={() => setShowWeakLinks(!showWeakLinks)}
@@ -685,7 +721,12 @@ export const SubjectGraphPage: React.FC = () => {
         <div className="flex items-center justify-between text-xs px-2 text-slate-500">
           <div className="flex items-center gap-4">
             <span>
-              Showing <strong className="text-slate-800">{displayedGraph.nodes.length}</strong> topics
+              Showing <strong className="text-slate-800">{displayedGraph.nodes.length}</strong> nodes
+              {typeof graphData.stats.ghost_node_count === "number" && graphData.stats.ghost_node_count > 0 && (
+                <span className="text-slate-500 ml-1">
+                  ({graphData.stats.real_node_count || 0} lit + {graphData.stats.ghost_node_count} ghost)
+                </span>
+              )}
               {graphData.nodes.length > displayedGraph.nodes.length && (
                 <span className="text-slate-400 ml-1">
                   (capped from {graphData.stats.total_available_nodes || graphData.nodes.length})
@@ -766,6 +807,7 @@ export const SubjectGraphPage: React.FC = () => {
           connectedLinks={selectedNodeConnectedChips}
           onFocusCluster={(cid) => handleClusterSelect(cid)}
           onFocusTopic={handleFocusConnectedTopic}
+          onOpenSyllabusModal={() => setIsSyllabusModalOpen(true)}
         />
 
         <LinkDetailPanel
@@ -776,6 +818,25 @@ export const SubjectGraphPage: React.FC = () => {
           userAuthHeaders={authHeaders}
         />
       </div>
+
+      {/* Syllabus Ghost Nodes & Gap List Modal (Task T18) */}
+      {selectedSubjectId && (
+        <SyllabusModal
+          key={selectedSubjectId}
+          isOpen={isSyllabusModalOpen}
+          subjectId={selectedSubjectId}
+          subjectName={
+            subjects.find((s) => s.id === selectedSubjectId)?.name ||
+            graphData?.subject_name ||
+            "Subject"
+          }
+          activeUserId={activeUser.id}
+          activeUserEmail={activeUser.email}
+          initialTab={graphData?.syllabus_coverage?.has_syllabus ? "coverage" : "upload"}
+          onClose={() => setIsSyllabusModalOpen(false)}
+          onUpdated={() => fetchSubjectGraph(selectedSubjectId, true)}
+        />
+      )}
     </div>
   );
 };

@@ -29,6 +29,13 @@ class TheoryLinkChip(BaseModel):
     direction: str = Field("outgoing", description="outgoing or incoming relative to this topic")
 
 
+class TheorySourceCitation(BaseModel):
+    """Source document citation attached to a theory card (Feature F17)."""
+    filename: str
+    page: int = 1
+    source_kind: str = "notes"
+
+
 class TheoryTopicCard(BaseModel):
     """Bite-sized revision card for a single academic topic."""
     id: str
@@ -39,6 +46,12 @@ class TheoryTopicCard(BaseModel):
     module_no: int = 1
     reviewed: bool = False
     cluster_label: Optional[str] = None
+    active_source_kind: Optional[str] = Field(None, description="Source kind used for this card: 'notes' or 'textbook'")
+    has_multiple_sources: bool = Field(False, description="True if both notes and textbook cover this topic")
+    source_citations: List[TheorySourceCitation] = Field(default_factory=list)
+    syllabus_topic_id: Optional[str] = None
+    syllabus_title: Optional[str] = None
+    syllabus_match_locked: bool = False
     links: List[TheoryLinkChip] = Field(default_factory=list)
 
 
@@ -54,6 +67,7 @@ class SubjectTheoryResponse(BaseModel):
     """Full hierarchical theory view response for a chosen subject."""
     subject_id: str
     subject_name: str
+    source_preference: str = "notes"
     total_topics: int
     total_links: int
     unreviewed_count: int

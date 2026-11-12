@@ -7,6 +7,7 @@ export interface CitationItemData {
   page: number;
   snippet: string;
   similarity: number;
+  source_kind?: "notes" | "textbook" | string | null;
 }
 
 interface CitationBadgeProps {
@@ -23,6 +24,12 @@ export const CitationBadge: React.FC<CitationBadgeProps> = ({ citation }) => {
       : citation.filename;
 
   const similarityPercent = Math.round(citation.similarity * 100);
+  const sourceKindLabel =
+    citation.source_kind === "textbook"
+      ? "Textbook"
+      : citation.source_kind === "notes"
+      ? "Notes"
+      : null;
 
   return (
     <>
@@ -34,6 +41,17 @@ export const CitationBadge: React.FC<CitationBadgeProps> = ({ citation }) => {
         title="Click to view supporting note excerpt"
       >
         <FileText className="w-3 h-3 text-indigo-500 group-hover:text-indigo-700 transition" />
+        {sourceKindLabel && (
+          <span
+            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              citation.source_kind === "textbook"
+                ? "bg-purple-200/80 text-purple-900"
+                : "bg-emerald-200/80 text-emerald-900"
+            }`}
+          >
+            {sourceKindLabel}
+          </span>
+        )}
         <span className="font-medium truncate max-w-[150px]">{displayFilename}</span>
         <span className="bg-indigo-200/70 text-indigo-800 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
           p. {citation.page}
@@ -61,6 +79,7 @@ export const CitationBadge: React.FC<CitationBadgeProps> = ({ citation }) => {
                     </span>
                   </h4>
                   <p className="text-xs text-slate-500 truncate max-w-sm">
+                    {sourceKindLabel ? `${sourceKindLabel} • ` : ""}
                     {citation.filename} &bull; Page {citation.page}
                   </p>
                 </div>

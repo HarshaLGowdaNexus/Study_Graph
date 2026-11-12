@@ -21,6 +21,7 @@ import { CitationBadge, CitationItemData } from "./CitationBadge";
 interface SubjectItem {
   id: string;
   name: string;
+  source_preference?: "notes" | "textbook";
 }
 
 interface ChatMessage {
@@ -232,6 +233,28 @@ export const ChatPage: React.FC = () => {
 
   const selectedSubject = subjects.find((s) => s.id === selectedSubjectId);
 
+  const handlePreferenceChange = async (nextPref: "notes" | "textbook") => {
+    if (!selectedSubjectId) return;
+    try {
+      const res = await fetch(`/api/subjects/${selectedSubjectId}/preference`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-test-user-id": activeUser.id,
+          "x-test-user-email": activeUser.email,
+        },
+        body: JSON.stringify({ source_preference: nextPref }),
+      });
+      if (res.ok) {
+        setSubjects((prev) =>
+          prev.map((s) => (s.id === selectedSubjectId ? { ...s, source_preference: nextPref } : s))
+        );
+      }
+    } catch (err) {
+      console.error("Could not update source preference:", err);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-4 space-y-4">
       {/* Top Header & Student Selector */}
@@ -313,7 +336,36 @@ export const ChatPage: React.FC = () => {
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Notes vs Textbook Preference Toggle (Feature F17) */}
+            {selectedSubjectId && (
+              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-md px-2 py-0.5 text-xs">
+                <span className="text-[11px] font-semibold text-slate-500">Prefer:</span>
+                <button
+                  type="button"
+                  onClick={() => handlePreferenceChange("notes")}
+                  className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
+                    (selectedSubject?.source_preference || "notes") === "notes"
+                      ? "bg-indigo-600 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  Notes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePreferenceChange("textbook")}
+                  className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
+                    selectedSubject?.source_preference === "textbook"
+                      ? "bg-purple-600 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  Textbook
+                </button>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleClearChat}

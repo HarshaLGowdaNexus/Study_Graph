@@ -23,6 +23,7 @@ from backend.app.schemas.theory import (
     SubjectTheoryResponse,
     TheoryLinkChip,
     TheoryModuleGroup,
+    TheorySourceCitation,
     TheoryTopicCard,
 )
 
@@ -51,10 +52,10 @@ def get_subject_theory(
     Enforces Rule 11 (Student Privacy): Only returns topics for subjects owned by the student.
     """
     with get_db_cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-        # Step 1: Verify subject ownership
+        # Step 1: Verify subject ownership and read source_preference (Feature F17)
         cur.execute(
             """
-            SELECT id, name
+            SELECT id, name, COALESCE(source_preference, 'notes') AS source_preference
             FROM subjects
             WHERE id = %s AND user_id = %s;
             """,
@@ -68,8 +69,11 @@ def get_subject_theory(
             )
 
         subject_name = subject_row["name"]
+        source_preference = subject_row.get("source_preference") or "notes"
+        if source_preference not in ("notes", "textbook"):
+            source_preference = "notes"
 
-        # Step 2: Fetch all topics for this subject
+        # Step 2: Fetch all topics for this subject (with source citations & syllabus match)
         cur.execute(
             """
             SELECT 
@@ -80,9 +84,31 @@ def get_subject_theory(
                 t.real_world_use, 
                 t.module_no, 
                 t.reviewed,
-                c.label AS cluster_label
+                COALESCE(t.source_variants, '{}'::jsonb) AS source_variants,
+                t.syllabus_topic_id,
+                COALESCE(t.syllabus_match_locked, FALSE) AS syllabus_match_locked,
+                st.title AS syllabus_title,
+                c.label AS cluster_label,
+                COALESCE(src.citations_json, '[]'::json) AS source_citations
             FROM topics t
+            LEFT JOIN syllabus_topics st ON t.syllabus_topic_id = st.id
             LEFT JOIN clusters c ON t.cluster_id = c.id
+            LEFT JOIN (
+                SELECT
+                    ts.topic_id,
+                    JSON_AGG(
+                        DISTINCT JSONB_BUILD_OBJECT(
+                            'filename', d.filename,
+                            'page', COALESCE(ch.page, 1),
+                            'source_kind', d.source_kind
+                        )
+                    ) AS citations_json
+                FROM topic_sources ts
+                JOIN chunks ch ON ch.id = ts.chunk_id
+                JOIN documents d ON d.id = ch.document_id
+                WHERE d.source_kind IN ('notes', 'textbook')
+                GROUP BY ts.topic_id
+            ) src ON src.topic_id = t.id
             WHERE t.subject_id = %s
             ORDER BY COALESCE(t.module_no, 1) ASC, t.keyword ASC;
             """,
@@ -94,6 +120,7 @@ def get_subject_theory(
             return SubjectTheoryResponse(
                 subject_id=subject_id,
                 subject_name=subject_name,
+                source_preference=source_preference,
                 total_topics=0,
                 total_links=0,
                 unreviewed_count=0,
@@ -203,6 +230,43 @@ def get_subject_theory(
 
         mod_no = int(tr["module_no"]) if tr["module_no"] is not None else 1
 
+        # Resolve active source kind & explanation according to subject source_preference (Feature F17)
+        variants = tr.get("source_variants") if isinstance(tr.get("source_variants"), dict) else {}
+        raw_cits = tr.get("source_citations") or []
+        topic_cits = [
+            TheorySourceCitation(
+                filename=c["filename"],
+                page=int(c.get("page") or 1),
+                source_kind=c.get("source_kind") or "notes",
+            )
+            for c in raw_cits
+            if isinstance(c, dict) and c.get("filename")
+        ]
+        available_kinds = {c.source_kind for c in topic_cits} | {k for k in variants.keys() if k in ("notes", "textbook")}
+        has_multiple = len(available_kinds) > 1
+
+        if source_preference in available_kinds:
+            active_kind: str | None = source_preference
+        elif available_kinds:
+            active_kind = "notes" if "notes" in available_kinds else sorted(available_kinds)[0]
+        else:
+            active_kind = None
+
+        explanation_out = tr["explanation"]
+        real_world_out = tr["real_world_use"]
+        if active_kind and active_kind in variants and isinstance(variants[active_kind], dict):
+            v = variants[active_kind]
+            if v.get("explanation"):
+                explanation_out = v["explanation"]
+            if v.get("real_world_use") is not None:
+                real_world_out = v["real_world_use"]
+
+        # Order citations so preferred/active source appears first
+        ordered_cits = sorted(
+            topic_cits,
+            key=lambda c: (c.source_kind != active_kind, c.filename, c.page),
+        )
+
         # Sort chips: cross-module first, then by strength desc
         sorted_chips = sorted(
             chips_by_topic.get(tid, []),
@@ -213,11 +277,17 @@ def get_subject_theory(
             id=tid,
             subject_id=str(tr["subject_id"]),
             keyword=tr["keyword"],
-            explanation=tr["explanation"],
-            real_world_use=tr["real_world_use"],
+            explanation=explanation_out,
+            real_world_use=real_world_out,
             module_no=mod_no,
             reviewed=is_reviewed,
             cluster_label=tr["cluster_label"],
+            active_source_kind=active_kind,
+            has_multiple_sources=has_multiple,
+            source_citations=ordered_cits,
+            syllabus_topic_id=str(tr["syllabus_topic_id"]) if tr.get("syllabus_topic_id") else None,
+            syllabus_title=tr.get("syllabus_title"),
+            syllabus_match_locked=bool(tr.get("syllabus_match_locked")),
             links=sorted_chips,
         )
         modules_map[mod_no].append(card)
@@ -237,6 +307,7 @@ def get_subject_theory(
     return SubjectTheoryResponse(
         subject_id=subject_id,
         subject_name=subject_name,
+        source_preference=source_preference,
         total_topics=len(topic_rows),
         total_links=len(total_distinct_edges),
         unreviewed_count=unreviewed_count,

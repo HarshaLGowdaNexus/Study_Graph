@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { TopicCard, TheoryTopicCardData } from "./TopicCard";
 import { TheoryLinkChipData } from "./LinkChip";
+import { SyllabusModal } from "../syllabus/SyllabusModal";
+import { SubjectSyllabusResponse } from "../syllabus/syllabusUtils";
 
 interface SubjectItem {
   id: string;
@@ -32,6 +34,7 @@ interface TheoryModuleGroupData {
 interface SubjectTheoryResponse {
   subject_id: string;
   subject_name: string;
+  source_preference?: string;
   total_topics: number;
   total_links: number;
   unreviewed_count: number;
@@ -56,6 +59,9 @@ export const TheoryPage: React.FC = () => {
   const [showWeakLinks, setShowWeakLinks] = useState(false); // Default false (Rule 13.8)
   const [highlightedTopicId, setHighlightedTopicId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [prefSaving, setPrefSaving] = useState(false);
+  const [syllabusInfo, setSyllabusInfo] = useState<SubjectSyllabusResponse | null>(null);
+  const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState(false);
 
   // Load subject list on mount or when student changes
   useEffect(() => {
@@ -119,6 +125,13 @@ export const TheoryPage: React.FC = () => {
       }
       const data: SubjectTheoryResponse = await res.json();
       setTheoryData(data);
+      // Load syllabus coverage in parallel (non-blocking)
+      fetch(`/api/subjects/${subjectId}/syllabus`, {
+        headers: { "x-test-user-id": uid, "x-test-user-email": uemail },
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((s) => setSyllabusInfo(s))
+        .catch(() => setSyllabusInfo(null));
     } catch (err: any) {
       setError(err.message || "Could not load theory revision data.");
     } finally {
@@ -184,6 +197,30 @@ export const TheoryPage: React.FC = () => {
     const el = document.getElementById(`module-section-${moduleNo}`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const handlePreferenceToggle = async (nextPref: "notes" | "textbook") => {
+    if (!selectedSubjectId || prefSaving) return;
+    setPrefSaving(true);
+    try {
+      const res = await fetch(`/api/subjects/${selectedSubjectId}/preference`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-test-user-id": activeUser.id,
+          "x-test-user-email": activeUser.email,
+        },
+        body: JSON.stringify({ source_preference: nextPref }),
+      });
+      if (res.ok) {
+        showToast(`Switched preferred source to ${nextPref === "notes" ? "Lecture Notes" : "Textbook"}`);
+        await fetchTheoryData(selectedSubjectId, activeUser.id, activeUser.email);
+      }
+    } catch {
+      showToast("Could not update source preference.");
+    } finally {
+      setPrefSaving(false);
     }
   };
 
@@ -282,8 +319,51 @@ export const TheoryPage: React.FC = () => {
               )}
             </div>
 
-            {/* Controls: Weak Links Toggle & Stats */}
-            <div className="flex items-center gap-3 self-end sm:self-auto">
+            {/* Controls: Source Preference Toggle (F17), Syllabus Coverage (F16), Weak Links & Stats */}
+            <div className="flex flex-wrap items-center gap-2.5 self-end sm:self-auto">
+              {/* Notes vs Textbook Preference Toggle */}
+              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs">
+                <span className="text-[11px] font-semibold text-slate-500">Prefer:</span>
+                <button
+                  type="button"
+                  disabled={prefSaving}
+                  onClick={() => handlePreferenceToggle("notes")}
+                  className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
+                    (theoryData.source_preference || "notes") === "notes"
+                      ? "bg-indigo-600 text-white"
+                      : "text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Notes
+                </button>
+                <button
+                  type="button"
+                  disabled={prefSaving}
+                  onClick={() => handlePreferenceToggle("textbook")}
+                  className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
+                    theoryData.source_preference === "textbook"
+                      ? "bg-purple-600 text-white"
+                      : "text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Textbook
+                </button>
+              </div>
+
+              {/* Syllabus Coverage & Gaps button */}
+              {selectedSubjectId && (
+                <button
+                  type="button"
+                  onClick={() => setIsSyllabusModalOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border bg-indigo-50/70 text-indigo-800 border-indigo-200 hover:bg-indigo-100 transition cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                  {syllabusInfo?.has_syllabus
+                    ? `Syllabus ${syllabusInfo.coverage_percent}% (${syllabusInfo.gap_count} gaps)`
+                    : "Syllabus & Gaps"}
+                </button>
+              )}
+
               {/* Weak Links Toggle (Rule 13.8) */}
               <button
                 onClick={() => setShowWeakLinks(!showWeakLinks)}
@@ -437,6 +517,21 @@ export const TheoryPage: React.FC = () => {
             Clear search
           </button>
         </div>
+      )}
+
+      {/* Syllabus Coverage & Gap Modal */}
+      {selectedSubjectId && (
+        <SyllabusModal
+          key={selectedSubjectId}
+          isOpen={isSyllabusModalOpen}
+          subjectId={selectedSubjectId}
+          subjectName={theoryData?.subject_name || "Subject"}
+          activeUserId={activeUser.id}
+          activeUserEmail={activeUser.email}
+          initialTab={syllabusInfo?.has_syllabus ? "coverage" : "upload"}
+          onClose={() => setIsSyllabusModalOpen(false)}
+          onUpdated={() => fetchTheoryData(selectedSubjectId, activeUser.id, activeUser.email)}
+        />
       )}
     </div>
   );

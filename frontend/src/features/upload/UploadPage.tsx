@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { TopicReviewModal } from "../review/TopicReviewModal";
+import { SyllabusModal } from "../syllabus/SyllabusModal";
 
 // Student Profiles for testing user isolation (Privacy Rule 11)
 const DEMO_USERS = [
@@ -69,6 +70,9 @@ export const UploadPage: React.FC = () => {
 
   // Review Screen Modal state (T06)
   const [reviewingDoc, setReviewingDoc] = useState<DocumentItem | null>(null);
+  // Syllabus Modal state (T18)
+  const [isSyllabusOpen, setIsSyllabusOpen] = useState<boolean>(false);
+  const [prefSaving, setPrefSaving] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -279,6 +283,54 @@ export const UploadPage: React.FC = () => {
     await createSubjectWithName(newSubjectName);
   };
 
+  const handlePreferenceChange = async (nextPref: "notes" | "textbook") => {
+    if (!selectedSubjectId || prefSaving) return;
+    setPrefSaving(true);
+    try {
+      const res = await fetch(`/api/subjects/${selectedSubjectId}/preference`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-test-user-id": activeUser.id,
+          "x-test-user-email": activeUser.email,
+        },
+        body: JSON.stringify({ source_preference: nextPref }),
+      });
+      if (res.ok) {
+        setSubjects((prev) =>
+          prev.map((s) => (s.id === selectedSubjectId ? { ...s, source_preference: nextPref } : s))
+        );
+        setStatusMessage(
+          `Preferred source updated to ${nextPref === "notes" ? "Lecture Notes" : "Textbook"} for Study Chat & Theory cards.`
+        );
+      }
+    } catch (err) {
+      console.error("Failed to update preference:", err);
+    } finally {
+      setPrefSaving(false);
+    }
+  };
+
+  const activeSubject = subjects.find((s) => s.id === selectedSubjectId);
+
+  const handleRetryDocument = async (docId: string) => {
+    try {
+      const res = await fetch(`/api/documents/${docId}/retry`, {
+        method: "POST",
+        headers: {
+          "x-test-user-id": activeUser.id,
+          "x-test-user-email": activeUser.email,
+        },
+      });
+      if (res.ok) {
+        setStatusMessage("Re-queued document for background extraction.");
+        loadDocumentsForSubject(selectedSubjectId, activeUser.id, activeUser.email);
+      }
+    } catch (err) {
+      console.error("Failed to retry document:", err);
+    }
+  };
+
   // Upload handler
   const handleUpload = async () => {
     if (!selectedFile) {
@@ -457,40 +509,84 @@ export const UploadPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Create Custom Subject Option */}
-            <div className="pt-1">
-              {!isCreatingSubject ? (
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingSubject(true)}
-                  className="text-xs text-indigo-600 font-semibold hover:text-indigo-800 flex items-center gap-1"
-                >
-                  + Add a custom subject folder
-                </button>
-              ) : (
-                <form onSubmit={handleCreateSubject} className="flex items-center gap-2 mt-2">
-                  <input
-                    type="text"
-                    placeholder="e.g. Computer Networks"
-                    value={newSubjectName}
-                    onChange={(e) => setNewSubjectName(e.target.value)}
-                    className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500"
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    className="bg-indigo-600 text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-indigo-700 cursor-pointer"
-                  >
-                    Save Subject
-                  </button>
+            {/* Create Custom Subject Option & T18 Syllabus / Source Preference Controls */}
+            <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                {!isCreatingSubject ? (
                   <button
                     type="button"
-                    onClick={() => setIsCreatingSubject(false)}
-                    className="text-xs text-slate-500 hover:text-slate-800 px-2 py-2 cursor-pointer"
+                    onClick={() => setIsCreatingSubject(true)}
+                    className="text-xs text-indigo-600 font-semibold hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
                   >
-                    Cancel
+                    + Add a custom subject folder
                   </button>
-                </form>
+                ) : (
+                  <form onSubmit={handleCreateSubject} className="flex items-center gap-2 mt-1">
+                    <input
+                      type="text"
+                      placeholder="e.g. Computer Networks"
+                      value={newSubjectName}
+                      onChange={(e) => setNewSubjectName(e.target.value)}
+                      className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="bg-indigo-600 text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-indigo-700 cursor-pointer"
+                    >
+                      Save Subject
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingSubject(false)}
+                      className="text-xs text-slate-500 hover:text-slate-800 px-2 py-2 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              {selectedSubjectId && (
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Source Preference Toggle (Feature F17) */}
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs">
+                    <span className="text-[11px] font-semibold text-slate-500">Prefer when both exist:</span>
+                    <button
+                      type="button"
+                      disabled={prefSaving}
+                      onClick={() => handlePreferenceChange("notes")}
+                      className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
+                        (activeSubject?.source_preference || "notes") === "notes"
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      Notes
+                    </button>
+                    <button
+                      type="button"
+                      disabled={prefSaving}
+                      onClick={() => handlePreferenceChange("textbook")}
+                      className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
+                        activeSubject?.source_preference === "textbook"
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      Textbook
+                    </button>
+                  </div>
+
+                  {/* Optional Syllabus Upload & Ghost Nodes Modal Trigger (Feature F16) */}
+                  <button
+                    type="button"
+                    onClick={() => setIsSyllabusOpen(true)}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-semibold transition cursor-pointer"
+                  >
+                    Optional: Syllabus & Ghost Nodes
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -690,10 +786,21 @@ export const UploadPage: React.FC = () => {
                       )}
 
                       {doc.status === "extracting" && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          Extracting content...
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Extracting content...
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRetryDocument(doc.id)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md cursor-pointer"
+                            title="Re-run if extraction got interrupted"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            Retry
+                          </button>
+                        </div>
                       )}
 
                       {doc.status === "done" && (
@@ -724,10 +831,20 @@ export const UploadPage: React.FC = () => {
                       )}
 
                       {doc.status === "failed" && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
-                          <AlertCircle className="w-3 h-3" />
-                          Failed
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                            <AlertCircle className="w-3 h-3" />
+                            Failed
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRetryDocument(doc.id)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md cursor-pointer"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            Retry
+                          </button>
+                        </div>
                       )}
 
                       <span className="text-[10px] text-slate-400">
@@ -771,6 +888,20 @@ export const UploadPage: React.FC = () => {
               loadDocumentsForSubject(selectedSubjectId, activeUser.id, activeUser.email);
             }
           }}
+        />
+      )}
+
+      {/* Syllabus Ghost Nodes Modal (T18) */}
+      {selectedSubjectId && (
+        <SyllabusModal
+          key={selectedSubjectId}
+          isOpen={isSyllabusOpen}
+          subjectId={selectedSubjectId}
+          subjectName={activeSubject?.name || "Subject"}
+          activeUserId={activeUser.id}
+          activeUserEmail={activeUser.email}
+          initialTab="upload"
+          onClose={() => setIsSyllabusOpen(false)}
         />
       )}
     </div>

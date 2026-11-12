@@ -162,11 +162,12 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
       (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
         const isSelected = selectedNodeId === node.id;
         const isHovered = hoveredNode?.id === node.id;
+        const isGhost = Boolean(node.is_ghost) || (typeof node.id === "string" && node.id.startsWith("ghost:"));
         const clusterName = node.parent_cluster_label || node.cluster_label || "default";
-        const color = clusterColorMap[clusterName] || "#6366f1";
+        const color = isGhost ? "rgba(148, 163, 184, 0.22)" : (clusterColorMap[clusterName] || "#6366f1");
 
         // Radius based on connectivity (degree)
-        const baseRadius = 5;
+        const baseRadius = isGhost ? 4.5 : 5;
         const radius = isSelected ? baseRadius + 3 : isHovered ? baseRadius + 2 : baseRadius;
 
         // Selection / Hover Halo Glow
@@ -177,19 +178,27 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           ctx.fill();
         }
 
-        // Main Node Circle
+        // Main Node Circle (Ghost nodes are faded with dashed outline per F16 / R13)
         ctx.beginPath();
         ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
         ctx.fillStyle = color;
         ctx.fill();
 
-        // Border outline
-        ctx.lineWidth = isSelected ? 2.5 : 1.5;
-        ctx.strokeStyle = isSelected ? "#1e1b4b" : "#ffffff";
-        ctx.stroke();
+        if (isGhost) {
+          ctx.save();
+          ctx.setLineDash([2.5, 2.5]);
+          ctx.lineWidth = isSelected ? 2 : 1.2;
+          ctx.strokeStyle = isSelected ? "#e2e8f0" : "rgba(148, 163, 184, 0.85)";
+          ctx.stroke();
+          ctx.restore();
+        } else {
+          ctx.lineWidth = isSelected ? 2.5 : 1.5;
+          ctx.strokeStyle = isSelected ? "#1e1b4b" : "#ffffff";
+          ctx.stroke();
+        }
 
-        // Reviewed indicator dot
-        if (node.reviewed === false) {
+        // Reviewed indicator dot (only on real extracted topics)
+        if (!isGhost && node.reviewed === false) {
           ctx.beginPath();
           ctx.arc(node.x + radius * 0.7, node.y - radius * 0.7, 2.5, 0, 2 * Math.PI, false);
           ctx.fillStyle = "#f59e0b"; // Amber warning dot
@@ -214,10 +223,10 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
           const bgHeight = fontSize + 3;
           const bgY = node.y + radius + 3;
 
-          ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+          ctx.fillStyle = isGhost ? "rgba(241, 245, 249, 0.72)" : "rgba(255, 255, 255, 0.88)";
           ctx.fillRect(node.x - textWidth / 2 - 3, bgY - 1, textWidth + 6, bgHeight);
 
-          ctx.fillStyle = isSelected ? "#312e81" : "#1e293b";
+          ctx.fillStyle = isGhost ? "#64748b" : isSelected ? "#312e81" : "#1e293b";
           ctx.fillText(label, node.x, bgY);
         }
       },
@@ -310,6 +319,10 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
               <span className="text-[11px]">Amber Dot = Unreviewed topic</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full border border-dashed border-slate-400 bg-slate-400/20 shrink-0" />
+              <span className="text-[11px]">Faded Dashed = Syllabus Ghost (Missing notes)</span>
             </div>
           </div>
         </div>

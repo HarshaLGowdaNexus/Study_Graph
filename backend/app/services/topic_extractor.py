@@ -55,7 +55,10 @@ class TopicExtractorService:
                 "Please add your Google AI Studio API key to .env: GEMINI_API_KEY=AIzaSy..."
             )
         if self._client is None:
-            self._client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            self._client = genai.Client(
+                api_key=settings.GEMINI_API_KEY,
+                http_options={"timeout": 30000},
+            )
         return self._client
 
     def _call_gemini_structured(
@@ -69,15 +72,18 @@ class TopicExtractorService:
         client = self._get_client()
 
         models_to_try = [self.model_name]
-        for fallback in ("gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"):
+        for fallback in ("gemini-flash-lite-latest", "gemini-3-flash-preview", "gemini-3.1-flash-lite", "gemini-flash-latest"):
             if fallback not in models_to_try:
                 models_to_try.append(fallback)
 
         last_error = None
+        retired_models = set()
 
-        # Attempt up to 2 tries (primary attempt + 1 retry on invalid output)
+        # Attempt up to 2 tries (primary attempt + 1 retry on transient error)
         for attempt in range(1, 3):
             for model in models_to_try:
+                if model in retired_models:
+                    continue
                 try:
                     response = client.models.generate_content(
                         model=model,
@@ -107,14 +113,19 @@ class TopicExtractorService:
                     return parsed, tokens
 
                 except Exception as e:
+                    err_str = str(e)
+                    last_error = e
+                    if "404" in err_str or "NOT_FOUND" in err_str:
+                        retired_models.add(model)
+                        logger.warning(f"[Topic Extractor] Model {model} unavailable (404); skipping immediately.")
+                        continue
                     logger.warning(
                         f"[Topic Extractor] Attempt {attempt} with model {model} failed: {e}. Backing off 1.5s..."
                     )
-                    last_error = e
                     time.sleep(1.5)
 
             logger.info(f"[Topic Extractor] Retrying topic extraction after attempt {attempt} error: {last_error}")
-            time.sleep(2.0)
+            time.sleep(1.5)
 
         raise RuntimeError(f"Failed to generate structured topics after 2 attempts. Last error: {last_error}")
 
@@ -203,22 +214,38 @@ class TopicExtractorService:
         topics: List[TopicExtractionItem],
         subject_id: str,
         module_no: Optional[int],
+        source_kind: Optional[str] = None,
+        filename: Optional[str] = None,
+        page_no: Optional[int] = None,
     ) -> List[str]:
         """
         Saves approved topics to PostgreSQL 'topics' and 'topic_sources' tables.
-        Sets reviewed = FALSE and assigns module_no from chunk metadata.
+        Sets reviewed = FALSE, assigns module_no from chunk metadata, and records
+        per-source variants ('notes' vs 'textbook') when available (Feature F17).
         """
         if not topics:
             return []
 
         created_topic_ids = []
+        valid_sk = source_kind if source_kind in ("notes", "textbook") else None
 
         with get_db_cursor() as cursor:
             for topic in topics:
+                variant_payload = None
+                if valid_sk:
+                    variant_payload = {
+                        valid_sk: {
+                            "explanation": topic.explanation,
+                            "real_world_use": topic.real_world_use,
+                            "filename": filename,
+                            "page": page_no,
+                        }
+                    }
+
                 # Check for existing topic in this subject to guarantee idempotency (Rule T11)
                 cursor.execute(
                     """
-                    SELECT id, reviewed 
+                    SELECT id, reviewed, COALESCE(source_variants, '{}'::jsonb)
                     FROM topics 
                     WHERE subject_id = %s AND LOWER(TRIM(keyword)) = LOWER(TRIM(%s))
                     LIMIT 1;
@@ -230,17 +257,38 @@ class TopicExtractorService:
                 if existing:
                     topic_id = str(existing[0])
                     is_reviewed = bool(existing[1])
-                    # If not reviewed by student yet, update with latest extraction
+                    existing_variants = existing[2] if isinstance(existing[2], dict) else {}
+                    merged_variants = dict(existing_variants)
+                    if variant_payload:
+                        merged_variants.update(variant_payload)
+
+                    # If not reviewed by student yet, update with latest extraction; always preserve source_variants
                     if not is_reviewed:
                         cursor.execute(
                             """
                             UPDATE topics
                             SET explanation = %s,
                                 real_world_use = %s,
-                                module_no = COALESCE(module_no, %s)
+                                module_no = COALESCE(module_no, %s),
+                                source_variants = %s::jsonb
                             WHERE id = %s;
                             """,
-                            (topic.explanation, topic.real_world_use, module_no, topic_id),
+                            (
+                                topic.explanation,
+                                topic.real_world_use,
+                                module_no,
+                                json.dumps(merged_variants),
+                                topic_id,
+                            ),
+                        )
+                    elif variant_payload:
+                        cursor.execute(
+                            """
+                            UPDATE topics
+                            SET source_variants = %s::jsonb
+                            WHERE id = %s;
+                            """,
+                            (json.dumps(merged_variants), topic_id),
                         )
                     created_topic_ids.append(topic_id)
                 else:
@@ -253,9 +301,10 @@ class TopicExtractorService:
                             explanation,
                             real_world_use,
                             reviewed,
-                            module_no
+                            module_no,
+                            source_variants
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)
                         RETURNING id;
                         """,
                         (
@@ -265,6 +314,7 @@ class TopicExtractorService:
                             topic.real_world_use,
                             False,  # reviewed = false
                             module_no,
+                            json.dumps(variant_payload or {}),
                         ),
                     )
                     row = cursor.fetchone()
@@ -298,7 +348,7 @@ class TopicExtractorService:
         with get_db_cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, subject_id, module_no, filename
+                SELECT id, subject_id, module_no, filename, source_kind
                 FROM documents
                 WHERE id = %s;
                 """,
@@ -309,7 +359,7 @@ class TopicExtractorService:
         if not doc_row:
             raise ValueError(f"Document {document_id} not found.")
 
-        doc_id, subject_id, doc_module_no, filename = doc_row
+        doc_id, subject_id, doc_module_no, filename, doc_source_kind = doc_row
 
         # Fetch chunks for this document
         with get_db_cursor() as cursor:
@@ -389,6 +439,9 @@ class TopicExtractorService:
                     topics=valid_topics,
                     subject_id=str(subject_id),
                     module_no=m_no,
+                    source_kind=doc_source_kind,
+                    filename=filename,
+                    page_no=page_num,
                 )
                 result.topics_created += len(saved_ids)
                 result.created_topic_ids.extend(saved_ids)

@@ -205,7 +205,13 @@ class DedupeService:
         with get_db_cursor(cursor_factory=RealDictCursor) as cursor:
             # 1. Fetch both topics
             cursor.execute(
-                "SELECT id, subject_id, keyword, explanation, real_world_use, module_no FROM topics WHERE id IN (%s, %s)",
+                """
+                SELECT id, subject_id, keyword, explanation, real_world_use, module_no,
+                       COALESCE(source_variants, '{}'::jsonb) AS source_variants,
+                       syllabus_topic_id, COALESCE(syllabus_match_locked, FALSE) AS syllabus_match_locked
+                FROM topics
+                WHERE id IN (%s, %s)
+                """,
                 (str(surviving_topic_id), str(merged_topic_id)),
             )
             rows = {str(r["id"]): r for r in cursor.fetchall()}
@@ -307,6 +313,23 @@ class DedupeService:
                     """,
                     (str(surviving_topic_id), old_surviving_kw),
                 )
+
+            # Preserve source_variants and syllabus mapping/locks across merge
+            surv_variants = surviving.get("source_variants") if isinstance(surviving.get("source_variants"), dict) else {}
+            merg_variants = merged.get("source_variants") if isinstance(merged.get("source_variants"), dict) else {}
+            combined_variants = {**merg_variants, **surv_variants}
+            combined_syl_id = surviving.get("syllabus_topic_id") or merged.get("syllabus_topic_id")
+            combined_locked = bool(surviving.get("syllabus_match_locked")) or bool(merged.get("syllabus_match_locked"))
+            cursor.execute(
+                """
+                UPDATE topics
+                SET source_variants = %s::jsonb,
+                    syllabus_topic_id = %s,
+                    syllabus_match_locked = %s
+                WHERE id = %s;
+                """,
+                (json.dumps(combined_variants), combined_syl_id, combined_locked, str(surviving_topic_id)),
+            )
 
             # 6. Delete merged topic (CASCADE cleans up old topic_sources and topic_aliases for merged_topic_id)
             cursor.execute("DELETE FROM topics WHERE id = %s", (str(merged_topic_id),))

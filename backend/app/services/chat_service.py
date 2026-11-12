@@ -115,13 +115,17 @@ class ChatService:
         subject_id: str,
         query_embedding: List[float],
         top_k: Optional[int] = None,
+        source_preference: str = "notes",
         cursor: Optional[Any] = None,
     ) -> List[Dict[str, Any]]:
         """
         Retrieves top-K nearest document chunks for this subject and user using pgvector cosine distance.
+        When both 'notes' and 'textbook' chunks have relevant matches, applies a bounded tie-breaker
+        boost (SOURCE_PREFERENCE_BOOST) to favor the subject's preferred source_kind (Feature F17).
         Strictly enforces user privacy (Rule 11 / Risk R11): documents and subject must belong to user_id.
         """
         limit_k = top_k or self.top_k
+        candidate_limit = max(limit_k * 4, 20)
         emb_str = f"[{','.join(f'{x:.6f}' for x in query_embedding)}]"
 
         query = """
@@ -145,14 +149,32 @@ class ChatService:
         """
 
         if cursor is not None:
-            cursor.execute(query, (emb_str, str(subject_id), str(user_id), emb_str, limit_k))
-            rows = cursor.fetchall()
-            return [dict(r) for r in rows]
+            cursor.execute(query, (emb_str, str(subject_id), str(user_id), emb_str, candidate_limit))
+            rows = [dict(r) for r in cursor.fetchall()]
+        else:
+            with get_db_cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, (emb_str, str(subject_id), str(user_id), emb_str, candidate_limit))
+                rows = [dict(r) for r in cur.fetchall()]
 
-        with get_db_cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(query, (emb_str, str(subject_id), str(user_id), emb_str, limit_k))
-            rows = cur.fetchall()
-            return [dict(r) for r in rows]
+        if not rows:
+            return []
+
+        pref = source_preference if source_preference in ("notes", "textbook") else "notes"
+        relevance_floor = max(0.42, self.confidence_threshold - 0.15)
+        relevant_kinds = {
+            r["source_kind"]
+            for r in rows
+            if float(r.get("similarity") or 0.0) >= relevance_floor and r.get("source_kind") in ("notes", "textbook")
+        }
+
+        if len(relevant_kinds) > 1:
+            boost = float(getattr(settings, "SOURCE_PREFERENCE_BOOST", 0.08))
+            rows.sort(
+                key=lambda r: float(r.get("similarity") or 0.0) + (boost if r.get("source_kind") == pref else 0.0),
+                reverse=True,
+            )
+
+        return rows[:limit_k]
 
     @staticmethod
     def _get_marks_formatting_instructions(marks: Optional[int]) -> str:
@@ -200,8 +222,8 @@ class ChatService:
         if not clean_question:
             raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
-        # 1. Verify user ownership of the subject
-        subject_query = "SELECT id, name FROM subjects WHERE id = %s AND user_id = %s;"
+        # 1. Verify user ownership of the subject & read source_preference (Feature F17)
+        subject_query = "SELECT id, name, COALESCE(source_preference, 'notes') AS source_preference FROM subjects WHERE id = %s AND user_id = %s;"
         if cursor is not None:
             cursor.execute(subject_query, (str(subject_id), str(user_id)))
             subject_row = cursor.fetchone()
@@ -217,20 +239,24 @@ class ChatService:
             )
 
         subject_name = subject_row["name"]
+        source_preference = subject_row.get("source_preference") or "notes"
+        if source_preference not in ("notes", "textbook"):
+            source_preference = "notes"
 
         # 2. Embed the question
         query_vector = self.embedding_service.generate_single_embedding(clean_question)
 
-        # 3. Retrieve closest chunks
+        # 3. Retrieve closest chunks (respecting source_preference when both exist)
         retrieved_chunks = self.retrieve_chunks(
             user_id=user_id,
             subject_id=subject_id,
             query_embedding=query_vector,
             top_k=self.top_k,
+            source_preference=source_preference,
             cursor=cursor,
         )
 
-        top_similarity = float(retrieved_chunks[0]["similarity"]) if retrieved_chunks else 0.0
+        top_similarity = max((float(ch["similarity"]) for ch in retrieved_chunks), default=0.0)
         logger.info(
             f"[Chatbot] Subject: {subject_name} | Question: '{clean_question[:50]}...' | "
             f"Top similarity: {top_similarity:.4f} (Threshold: {self.confidence_threshold})"
@@ -263,16 +289,30 @@ class ChatService:
         else:
             # Chunks exist with sufficient similarity. Pass to Gemini Flash with strict grounding instructions
             formatted_chunks = []
+            present_kinds = set()
             for idx, ch in enumerate(retrieved_chunks, 1):
+                sk = ch.get("source_kind") or "notes"
+                present_kinds.add(sk)
+                sk_label = "Lecture Notes" if sk == "notes" else "Textbook"
                 formatted_chunks.append(
-                    f"--- [Excerpt {idx} - File: {ch['filename']} | Page: {ch['page']}] ---\n"
+                    f"--- [Excerpt {idx} - File: {ch['filename']} | Source: {sk_label} | Page: {ch['page']}] ---\n"
                     f"{ch['text']}\n"
                 )
             context_str = "\n".join(formatted_chunks)
 
+            pref_label = "Lecture Notes" if source_preference == "notes" else "Textbook"
+            pref_rule = ""
+            if len(present_kinds) > 1:
+                pref_rule = (
+                    f"\n4. Source Preference Rule: Both Lecture Notes and Textbook excerpts were retrieved. "
+                    f"The student's preferred source for this subject is '{pref_label}'. "
+                    f"If the Lecture Notes and Textbook excerpts conflict or give different definitions/details, "
+                    f"follow the '{pref_label}' excerpts as the authoritative answer and state clearly which source kind you relied on."
+                )
+
             grounded_prompt = (
                 f"Student's Study Question:\n\"{clean_question}\"\n\n"
-                f"Verified Excerpts from the student's notes for '{subject_name}':\n"
+                f"Verified Excerpts from the student's materials for '{subject_name}':\n"
                 f"{context_str}\n\n"
                 f"Strict Grounding Rules:\n"
                 f"1. Check if the provided excerpts actually explain or directly answer the question.\n"
@@ -282,6 +322,7 @@ class ChatService:
                 f"   - Explain the answer clearly using ONLY the facts from the excerpts.\n"
                 f"   - Do NOT invent outside details or pretend facts were in the text if they were not.\n"
                 f"   - {marks_instruction}"
+                f"{pref_rule}"
             )
 
             raw_resp, _ = self._generate_with_retry(
@@ -315,6 +356,7 @@ class ChatService:
                                 page=int(ch["page"]),
                                 snippet=snippet_clean,
                                 similarity=round(float(ch["similarity"]), 4),
+                                source_kind=ch.get("source_kind"),
                             )
                         )
                         if len(citations) >= 3:
@@ -332,6 +374,7 @@ class ChatService:
                             page=int(top_ch["page"]),
                             snippet=snippet_clean,
                             similarity=round(float(top_ch["similarity"]), 4),
+                            source_kind=top_ch.get("source_kind"),
                         )
                     )
 
@@ -374,6 +417,7 @@ class ChatService:
             text=answer_text,
             marks=marks,
             answered_from=answered_from,  # type: ignore
+            active_source_preference=source_preference,  # type: ignore
             confidence=round(top_similarity, 4),
             citations=citations,
             created_at=created_at,

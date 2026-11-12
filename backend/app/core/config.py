@@ -51,7 +51,7 @@ class Settings:
     GEMINI_VISION_MODEL: str = os.getenv("GEMINI_VISION_MODEL", "gemini-3.5-flash")
 
     # Topic Extraction Settings (Task T05, Decision D09)
-    TOPIC_EXTRACTION_MODEL: str = os.getenv("TOPIC_EXTRACTION_MODEL", "gemini-3.5-flash")
+    TOPIC_EXTRACTION_MODEL: str = os.getenv("TOPIC_EXTRACTION_MODEL", "gemini-flash-lite-latest")
     TOPIC_EXTRACTION_TEMPERATURE: float = float(os.getenv("TOPIC_EXTRACTION_TEMPERATURE", "0.1"))
     MAX_TOPICS_PER_PAGE: int = int(os.getenv("MAX_TOPICS_PER_PAGE", "4"))
 
@@ -64,7 +64,7 @@ class Settings:
     # Cosine similarity threshold (0.0 to 1.0) above which same-subject topics are flagged as candidates
     # Default 0.85: higher threshold prevents false merges; lower threshold catches looser phrasing
     DEDUPE_SIMILARITY_THRESHOLD: float = float(os.getenv("DEDUPE_SIMILARITY_THRESHOLD", "0.85"))
-    DEDUPE_CONFIRMATION_MODEL: str = os.getenv("DEDUPE_CONFIRMATION_MODEL", "gemini-3.5-flash-lite")
+    DEDUPE_CONFIRMATION_MODEL: str = os.getenv("DEDUPE_CONFIRMATION_MODEL", "gemini-flash-lite-latest")
     DEDUPE_CONFIRMATION_TEMPERATURE: float = float(os.getenv("DEDUPE_CONFIRMATION_TEMPERATURE", "0.0"))
 
     # Link Candidate Finder Settings (Task T08, Decisions D05, D10)
@@ -78,7 +78,7 @@ class Settings:
     CANDIDATE_MAX_PER_TOPIC: int = int(os.getenv("CANDIDATE_MAX_PER_TOPIC", "8"))
 
     # LLM Link Judge Settings (Task T09, Decisions D05, D09, RULEBOOK 13.1, 13.8)
-    LINK_JUDGE_MODEL: str = os.getenv("LINK_JUDGE_MODEL", "gemini-3.5-flash-lite")
+    LINK_JUDGE_MODEL: str = os.getenv("LINK_JUDGE_MODEL", "gemini-flash-lite-latest")
     LINK_JUDGE_TEMPERATURE: float = float(os.getenv("LINK_JUDGE_TEMPERATURE", "0.1"))
     # Cross-subject links need strength >= 3 to be visible by default (Risk R19, Rule 13.8)
     CROSS_SUBJECT_MIN_VISIBLE_STRENGTH: int = int(os.getenv("CROSS_SUBJECT_MIN_VISIBLE_STRENGTH", "3"))
@@ -118,6 +118,17 @@ class Settings:
     EXAM_QUESTION_SIMILARITY_THRESHOLD: float = float(os.getenv("EXAM_QUESTION_SIMILARITY_THRESHOLD", "0.75"))
     # Default max important concepts returned in Exam Mode
     EXAM_IMPORTANT_CONCEPTS_LIMIT: int = int(os.getenv("EXAM_IMPORTANT_CONCEPTS_LIMIT", "15"))
+
+    # Syllabus Ghost Nodes & Source Preference Settings (Task T18, Decisions D09, D10, Features F16, F17)
+    SYLLABUS_PARSE_MODEL: str = os.getenv("SYLLABUS_PARSE_MODEL", "gemini-flash-lite-latest")
+    SYLLABUS_MATCH_CONFIRM_MODEL: str = os.getenv("SYLLABUS_MATCH_CONFIRM_MODEL", "gemini-flash-lite-latest")
+    SYLLABUS_PARSE_TEMPERATURE: float = float(os.getenv("SYLLABUS_PARSE_TEMPERATURE", "0.1"))
+    # Minimum cosine similarity for a syllabus topic to be considered a match candidate for a note topic
+    SYLLABUS_MATCH_THRESHOLD: float = float(os.getenv("SYLLABUS_MATCH_THRESHOLD", "0.62"))
+    # Similarity at or above which exact/near-identical normalized topics confirm without extra LLM cost
+    SYLLABUS_AUTO_EXACT_THRESHOLD: float = float(os.getenv("SYLLABUS_AUTO_EXACT_THRESHOLD", "0.92"))
+    # Tie-breaker boost applied to chunks matching the subject's preferred source_kind ('notes' or 'textbook')
+    SOURCE_PREFERENCE_BOOST: float = float(os.getenv("SOURCE_PREFERENCE_BOOST", "0.08"))
 
 
 settings = Settings()

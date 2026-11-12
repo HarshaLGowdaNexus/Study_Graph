@@ -2,6 +2,12 @@ import React, { useEffect, useRef } from "react";
 import { Briefcase, AlertCircle, Bookmark, Layers, Link as LinkIcon } from "lucide-react";
 import { LinkChip, TheoryLinkChipData } from "./LinkChip";
 
+export interface TheorySourceCitationData {
+  filename: string;
+  page: number;
+  source_kind: string;
+}
+
 export interface TheoryTopicCardData {
   id: string;
   subject_id: string;
@@ -11,6 +17,12 @@ export interface TheoryTopicCardData {
   module_no: number;
   reviewed: boolean;
   cluster_label?: string;
+  active_source_kind?: string | null;
+  has_multiple_sources?: boolean;
+  source_citations?: TheorySourceCitationData[];
+  syllabus_topic_id?: string | null;
+  syllabus_title?: string | null;
+  syllabus_match_locked?: boolean;
   links: TheoryLinkChipData[];
 }
 
@@ -114,12 +126,39 @@ export const TopicCard: React.FC<TopicCardProps> = ({
 
       {/* Real-World Use Line (Answers 'Why am I learning this?') */}
       {card.real_world_use && (
-        <div className="flex items-start gap-2 text-xs text-slate-600 mb-4 bg-emerald-50/40 p-2.5 rounded-lg border border-emerald-100/60">
+        <div className="flex items-start gap-2 text-xs text-slate-600 mb-3 bg-emerald-50/40 p-2.5 rounded-lg border border-emerald-100/60">
           <Briefcase className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
           <div>
             <span className="font-semibold text-emerald-800">Industry Application: </span>
             <span className="text-slate-700">{card.real_world_use}</span>
           </div>
+        </div>
+      )}
+
+      {/* Source Provenance / Preference Citation Badge (Feature F17) */}
+      {(card.active_source_kind || (card.source_citations && card.source_citations.length > 0)) && (
+        <div className="flex items-center justify-between gap-2 text-[11px] bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200/80 mb-3">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className={`px-1.5 py-0.5 rounded font-bold shrink-0 ${
+                card.active_source_kind === "textbook"
+                  ? "bg-purple-100 text-purple-800 border border-purple-200"
+                  : "bg-indigo-100 text-indigo-800 border border-indigo-200"
+              }`}
+            >
+              Cited: {card.active_source_kind === "textbook" ? "Textbook" : "Lecture Notes"}
+            </span>
+            {card.source_citations && card.source_citations[0] && (
+              <span className="text-slate-600 truncate">
+                {card.source_citations[0].filename} (p. {card.source_citations[0].page})
+              </span>
+            )}
+          </div>
+          {card.has_multiple_sources && (
+            <span className="text-[10px] font-semibold text-amber-700 shrink-0">
+              Notes & Textbook exist
+            </span>
+          )}
         </div>
       )}
 

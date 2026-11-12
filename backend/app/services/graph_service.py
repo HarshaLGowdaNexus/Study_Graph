@@ -64,7 +64,7 @@ class GraphService:
         with get_db_cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
             # 1. Fetch subject details
             cursor.execute(
-                "SELECT id, name, source_preference FROM subjects WHERE id = %s AND user_id = %s;",
+                "SELECT id, name, source_preference, syllabus_subject_id FROM subjects WHERE id = %s AND user_id = %s;",
                 (subject_id, user_id),
             )
             subj = cursor.fetchone()
@@ -72,8 +72,10 @@ class GraphService:
                 raise ValueError(f"Subject {subject_id} not found for user {user_id}")
 
             subject_name = subj["name"]
+            source_preference = subj.get("source_preference") or "notes"
+            syllabus_subject_id = subj.get("syllabus_subject_id")
 
-            # 2. Fetch all topics for this subject with cluster labels and merged aliases
+            # 2. Fetch all topics for this subject with cluster labels, syllabus match, and merged aliases
             cursor.execute(
                 """
                 SELECT 
@@ -84,6 +86,9 @@ class GraphService:
                     t.module_no, 
                     t.reviewed,
                     t.cluster_id,
+                    t.syllabus_topic_id,
+                    COALESCE(t.syllabus_match_locked, FALSE) AS syllabus_match_locked,
+                    st.title AS syllabus_title,
                     c.label AS cluster_label,
                     pc.id AS parent_cluster_id,
                     pc.label AS parent_cluster_label,
@@ -92,16 +97,31 @@ class GraphService:
                         ARRAY[]::text[]
                     ) AS aliases
                 FROM topics t
+                LEFT JOIN syllabus_topics st ON t.syllabus_topic_id = st.id
                 LEFT JOIN clusters c ON t.cluster_id = c.id
                 LEFT JOIN clusters pc ON c.parent_id = pc.id
                 LEFT JOIN topic_aliases ta ON ta.topic_id = t.id
                 WHERE t.subject_id = %s
-                GROUP BY t.id, t.keyword, t.explanation, t.real_world_use, t.module_no, t.reviewed, t.cluster_id, c.label, pc.id, pc.label
+                GROUP BY t.id, t.keyword, t.explanation, t.real_world_use, t.module_no, t.reviewed, t.cluster_id, t.syllabus_topic_id, t.syllabus_match_locked, st.title, c.label, pc.id, pc.label
                 ORDER BY t.module_no ASC, t.keyword ASC;
                 """,
                 (subject_id,),
             )
             topics = cursor.fetchall()
+
+            # 2b. Fetch syllabus topics for ghost nodes & coverage (Feature F16, Risk R13)
+            syllabus_rows = []
+            if syllabus_subject_id:
+                cursor.execute(
+                    """
+                    SELECT id, COALESCE(module_no, 1) AS module_no, title, COALESCE(reviewed, FALSE) AS reviewed
+                    FROM syllabus_topics
+                    WHERE syllabus_subject_id = %s
+                    ORDER BY COALESCE(module_no, 1) ASC, title ASC;
+                    """,
+                    (str(syllabus_subject_id),),
+                )
+                syllabus_rows = cursor.fetchall() or []
 
             # 3. Fetch all active edges (exclude soft-deleted)
             topic_ids = [str(t["id"]) for t in topics]
@@ -147,7 +167,11 @@ class GraphService:
 
         # Format nodes for react-force-graph
         nodes = []
+        covered_syllabus_ids: Set[str] = set()
         for t in topics:
+            syl_tid = str(t["syllabus_topic_id"]) if t.get("syllabus_topic_id") else None
+            if syl_tid:
+                covered_syllabus_ids.add(syl_tid)
             nodes.append({
                 "id": str(t["id"]),
                 "name": t["keyword"],
@@ -162,6 +186,38 @@ class GraphService:
                 "parent_cluster_label": t.get("parent_cluster_label") or t.get("cluster_label") or "Core",
                 "subject_id": subject_id,
                 "subject_name": subject_name,
+                "is_ghost": False,
+                "syllabus_topic_id": syl_tid,
+                "syllabus_title": t.get("syllabus_title"),
+                "syllabus_match_locked": bool(t.get("syllabus_match_locked")),
+            })
+
+        # Emit uncovered syllabus_topics as faded ghost nodes (Feature F16, Risk R13)
+        ghost_count = 0
+        for st in syllabus_rows:
+            st_id = str(st["id"])
+            if st_id in covered_syllabus_ids:
+                continue
+            ghost_count += 1
+            mod_no = int(st.get("module_no") or 1)
+            nodes.append({
+                "id": f"ghost:{st_id}",
+                "name": st["title"],
+                "keyword": st["title"],
+                "aliases": [],
+                "explanation": f"Official syllabus topic (Module {mod_no}) — not yet covered in your uploaded notes.",
+                "real_world_use": "",
+                "module_no": mod_no,
+                "reviewed": bool(st.get("reviewed")),
+                "cluster_id": None,
+                "cluster_label": f"Module {mod_no} (Syllabus)",
+                "parent_cluster_label": f"Module {mod_no} (Syllabus)",
+                "subject_id": subject_id,
+                "subject_name": subject_name,
+                "is_ghost": True,
+                "syllabus_topic_id": st_id,
+                "syllabus_title": st["title"],
+                "syllabus_match_locked": False,
             })
 
         # Format links for react-force-graph
@@ -199,15 +255,29 @@ class GraphService:
                 "sub_clusters": subs,
             })
 
+        total_syl = len(syllabus_rows)
+        covered_syl = sum(1 for st in syllabus_rows if str(st["id"]) in covered_syllabus_ids)
+        cov_pct = round((covered_syl / total_syl) * 100.0, 1) if total_syl else 0.0
+
         return {
             "subject_id": subject_id,
             "subject_name": subject_name,
+            "source_preference": source_preference,
             "scope": "subject",
             "nodes": nodes,
             "links": links,
             "clusters": clusters_tree,
+            "syllabus_coverage": {
+                "has_syllabus": bool(syllabus_subject_id and total_syl > 0),
+                "total_syllabus_topics": total_syl,
+                "covered_count": covered_syl,
+                "gap_count": ghost_count,
+                "coverage_percent": cov_pct,
+            },
             "stats": {
                 "node_count": len(nodes),
+                "real_node_count": len(topics),
+                "ghost_node_count": ghost_count,
                 "link_count": len(links),
                 "cluster_count": len(clusters_tree),
             },
