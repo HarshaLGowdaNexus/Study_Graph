@@ -58,6 +58,7 @@ def ask_chat_question(
         user_id=current_user.id,
         subject_id=subject_id,
         question=request.question,
+        marks=request.marks,
     )
 
 

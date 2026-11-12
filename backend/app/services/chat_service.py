@@ -138,6 +138,7 @@ class ChatService:
             JOIN subjects s ON s.id = d.subject_id
             WHERE s.id = %s
               AND s.user_id = %s
+              AND d.source_kind != 'paper'
               AND c.embedding IS NOT NULL
             ORDER BY (c.embedding <=> %s::vector) ASC
             LIMIT %s;
@@ -153,11 +154,37 @@ class ChatService:
             rows = cur.fetchall()
             return [dict(r) for r in rows]
 
+    @staticmethod
+    def _get_marks_formatting_instructions(marks: Optional[int]) -> str:
+        """
+        Returns explicit exam answer structure & length instructions for 2, 5, or 10 marks
+        (Feature F20).
+        """
+        if marks == 2:
+            return (
+                "EXAM FORMAT (2 Marks): Write strictly 1 to 2 concise, high-yield lines "
+                "(max ~40 words). Do NOT use headings or bullet lists. Give the direct definition or key point."
+            )
+        if marks == 5:
+            return (
+                "EXAM FORMAT (5 Marks): Write a 1-sentence overview followed by 3 to 5 short, "
+                "structured bullet points covering the core steps, properties, or differences (~80-150 words)."
+            )
+        if marks == 10:
+            return (
+                "EXAM FORMAT (10 Marks): Write a comprehensive, structured university exam answer "
+                "using clear Markdown headings (for example: ### Overview & Definition, "
+                "### Core Mechanism / Architecture, ### Example / Real-World Use, ### Key Takeaways) "
+                "with detailed explanation under each heading (~220-400 words)."
+            )
+        return "Keep it structured, scannable, and helpful for revision."
+
     def ask_question(
         self,
         user_id: str,
         subject_id: str,
         question: str,
+        marks: Optional[int] = None,
         cursor: Optional[Any] = None,
     ) -> ChatAnswerResponse:
         """
@@ -214,14 +241,16 @@ class ChatService:
         answer_text: str = ""
 
         # 4. Check confidence threshold
+        marks_instruction = self._get_marks_formatting_instructions(marks)
+
         if not retrieved_chunks or top_similarity < self.confidence_threshold:
             # Low confidence: Topic is NOT in the student's notes
             logger.info("[Chatbot] Retrieval similarity below threshold. Triggering honest fallback.")
             general_prompt = (
                 f"A student studying '{subject_name}' asked the following question:\n"
                 f"\"{clean_question}\"\n\n"
-                f"Explain this concept clearly and educationally for a university exam. "
-                f"Be concise, direct, and use bullet points where helpful."
+                f"Explain this concept clearly and educationally for a university exam.\n"
+                f"{marks_instruction}"
             )
             raw_gen, _ = self._generate_with_retry(
                 prompt=general_prompt,
@@ -248,11 +277,11 @@ class ChatService:
                 f"Strict Grounding Rules:\n"
                 f"1. Check if the provided excerpts actually explain or directly answer the question.\n"
                 f"2. If the excerpts DO NOT contain the answer (e.g. only passing mentions of similar keywords without the needed facts), reply EXACTLY:\n"
-                f"NOT_FOUND_IN_NOTES: <write a helpful general knowledge explanation of the answer here>\n"
+                f"NOT_FOUND_IN_NOTES: <write a helpful general knowledge explanation following this format: {marks_instruction}>\n"
                 f"3. If the excerpts DO contain the answer:\n"
                 f"   - Explain the answer clearly using ONLY the facts from the excerpts.\n"
                 f"   - Do NOT invent outside details or pretend facts were in the text if they were not.\n"
-                f"   - Keep it structured, scannable, and helpful for revision."
+                f"   - {marks_instruction}"
             )
 
             raw_resp, _ = self._generate_with_retry(
@@ -343,6 +372,7 @@ class ChatService:
             subject_id=str(subject_id),
             role="assistant",
             text=answer_text,
+            marks=marks,
             answered_from=answered_from,  # type: ignore
             confidence=round(top_similarity, 4),
             citations=citations,

@@ -27,6 +27,7 @@ interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  marks?: 2 | 5 | 10 | null;
   answered_from?: "notes" | "general";
   confidence?: number;
   citations: CitationItemData[];
@@ -72,6 +73,7 @@ export const ChatPage: React.FC = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputQuestion, setInputQuestion] = useState("");
+  const [selectedMarks, setSelectedMarks] = useState<2 | 5 | 10 | null>(null);
   const [loading, setLoading] = useState(false);
   const [subjectsLoading, setSubjectsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -200,7 +202,7 @@ export const ChatPage: React.FC = () => {
           "x-test-user-id": activeUser.id,
           "x-test-user-email": activeUser.email,
         },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, marks: selectedMarks }),
       });
 
       if (!res.ok) {
@@ -213,6 +215,7 @@ export const ChatPage: React.FC = () => {
         id: answerData.id,
         role: "assistant",
         text: answerData.text,
+        marks: answerData.marks ?? selectedMarks,
         answered_from: answerData.answered_from,
         confidence: answerData.confidence,
         citations: answerData.citations || [],
@@ -414,11 +417,18 @@ export const ChatPage: React.FC = () => {
                       </span>
                     )}
 
-                    {msg.confidence !== undefined && (
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        Similarity: {Math.round(msg.confidence * 100)}%
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {msg.marks && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          {msg.marks} Marks Format
+                        </span>
+                      )}
+                      {msg.confidence !== undefined && (
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          Similarity: {Math.round(msg.confidence * 100)}%
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -489,7 +499,37 @@ export const ChatPage: React.FC = () => {
         )}
 
         {/* Question Input Footer */}
-        <div className="p-3 bg-white border-t border-slate-200">
+        <div className="p-3 bg-white border-t border-slate-200 space-y-2">
+          {/* Marks-Based Answer Format Selector (Feature F20) */}
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-semibold text-slate-500">Answer Length:</span>
+              {([null, 2, 5, 10] as const).map((m) => (
+                <button
+                  key={m ?? "std"}
+                  type="button"
+                  onClick={() => setSelectedMarks(m)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition cursor-pointer ${
+                    selectedMarks === m
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  {m === null ? "Standard" : `${m} Marks`}
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] text-slate-400">
+              {selectedMarks === 2
+                ? "1-2 crisp lines"
+                : selectedMarks === 5
+                ? "Short structured bullet points"
+                : selectedMarks === 10
+                ? "Detailed structured headings"
+                : "Default study answer"}
+            </span>
+          </div>
+
           <form
             onSubmit={(e) => {
               e.preventDefault();

@@ -3,12 +3,13 @@ import { UploadPage } from "./features/upload/UploadPage";
 import { LinkManager } from "./features/links/LinkManager";
 import { TheoryPage } from "./features/theory/TheoryPage";
 import { ChatPage } from "./features/chat/ChatPage";
+import { ExamModePage } from "./features/exam/ExamModePage";
 import { SubjectGraphPage } from "./features/graph/SubjectGraphPage";
 import { CrossSubjectGraphPage } from "./features/cross_graph/CrossSubjectGraphPage";
-import { Upload, Network, BookOpen, ShieldCheck, MessageSquare, Share2, Globe } from "lucide-react";
+import { Upload, Network, BookOpen, ShieldCheck, MessageSquare, Share2, Globe, GraduationCap } from "lucide-react";
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"cross_graph" | "graph" | "chat" | "theory" | "links" | "upload">("cross_graph");
+  const [activeTab, setActiveTab] = useState<"cross_graph" | "graph" | "exam" | "chat" | "theory" | "links" | "upload">("cross_graph");
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -47,6 +48,16 @@ export const App: React.FC = () => {
             >
               <Share2 className="w-3.5 h-3.5" />
               Subject Graph (T14)
+            </button>
+            <button
+              onClick={() => setActiveTab("exam")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition ${activeTab === "exam"
+                  ? "bg-white text-indigo-600 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+                }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              Exam Mode (T17)
             </button>
             <button
               onClick={() => setActiveTab("chat")}
@@ -102,6 +113,8 @@ export const App: React.FC = () => {
           <CrossSubjectGraphPage />
         ) : activeTab === "graph" ? (
           <SubjectGraphPage />
+        ) : activeTab === "exam" ? (
+          <ExamModePage />
         ) : activeTab === "chat" ? (
           <ChatPage />
         ) : activeTab === "theory" ? (

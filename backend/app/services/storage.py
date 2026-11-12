@@ -160,6 +160,40 @@ class StorageService:
 
         raise FileNotFoundError(f"Could not locate or download file from storage: {storage_uri}")
 
+    async def delete_file(self, storage_uri: str) -> None:
+        """
+        Best-effort removal of a stored file from local cache and Supabase Storage.
+        """
+        if not storage_uri:
+            return
+
+        cleaned = storage_uri
+        for prefix in ("supabase://", "fallback://", "local://"):
+            if cleaned.startswith(prefix):
+                cleaned = cleaned[len(prefix):]
+                break
+
+        subpath = cleaned[len(f"{self.bucket}/"):] if cleaned.startswith(f"{self.bucket}/") else cleaned
+
+        local_target = Path(settings.ROOT_DIR) / ".storage_cache" / self.bucket / subpath
+        if local_target.exists() and local_target.is_file():
+            try:
+                local_target.unlink()
+            except OSError:
+                pass
+
+        if settings.SUPABASE_URL and self.auth_key and storage_uri.startswith("supabase://"):
+            delete_url = f"{self.base_url}/object/{self.bucket}/{subpath}"
+            headers = {
+                "Authorization": f"Bearer {self.auth_key}",
+                "apikey": self.auth_key,
+            }
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    await client.delete(delete_url, headers=headers)
+            except Exception:
+                pass
+
 
 storage_service = StorageService()
 

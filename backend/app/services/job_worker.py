@@ -19,6 +19,7 @@ from backend.app.services.candidate_finder import CandidateFinderService
 from backend.app.services.cluster_service import cluster_service
 from backend.app.services.dedupe_service import DedupeService
 from backend.app.services.embedding_service import EmbeddingService
+from backend.app.services.exam_service import exam_service
 from backend.app.services.extractor import extractor_service
 from backend.app.services.graph_service import graph_service
 from backend.app.services.link_judge import LinkJudgeService
@@ -122,6 +123,25 @@ async def process_document_job(document_id: str, user_id: str) -> None:
                     """,
                     (document_id, chunk.page, chunk.text, module_no, chunk.method),
                 )
+
+        # Step 5b: If this document is a previous-year question paper, route to Exam Mode parser (T17)
+        # instead of creating graph topics/edges from exam questions.
+        if (source_kind or "").lower() == "paper" and subject_id:
+            pages_by_no = [(chunk.page, chunk.text) for chunk in extraction_result.chunks]
+            paper_res = exam_service.ingest_paper_document(
+                document_id=document_id,
+                subject_id=subject_id,
+                filename=filename,
+                pages=pages_by_no,
+            )
+            q_cnt = paper_res.get("questions_extracted", 0)
+            paper_summary = (
+                f"Parsed {q_cnt} exam question{'s' if q_cnt != 1 else ''} "
+                f"and updated repeated-question clusters."
+            )
+            update_document_status(document_id, "done", summary=paper_summary)
+            logger.info(f"[Job Worker] Exam paper {document_id} complete: {paper_summary}")
+            return
 
         # Step 6: Generate embeddings for new chunks (Decision D10)
         logger.info(f"[Job Worker] Generating embeddings for chunks of document {document_id}")

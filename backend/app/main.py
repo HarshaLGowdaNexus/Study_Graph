@@ -9,6 +9,7 @@ from backend.app.api.routes.candidates import router as candidates_router
 from backend.app.api.routes.chat import router as chat_router
 from backend.app.api.routes.dedupe import router as dedupe_router
 from backend.app.api.routes.edges import router as edges_router
+from backend.app.api.routes.exam import router as exam_router
 from backend.app.api.routes.graphs import router as graphs_router
 from backend.app.api.routes.theory import router as theory_router
 from backend.app.api.routes.topics import router as topics_router
@@ -46,6 +47,7 @@ app.include_router(edges_router)
 app.include_router(graphs_router, prefix="/api")
 app.include_router(theory_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+app.include_router(exam_router, prefix="/api")
 
 
 @app.get("/", tags=["Health"])

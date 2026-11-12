@@ -34,6 +34,10 @@ class ChatAskRequest(BaseModel):
         max_length=2000,
         description="The student's study question to ask the notes chatbot",
     )
+    marks: Optional[Literal[2, 5, 10]] = Field(
+        default=None,
+        description="Optional exam mark target (2, 5, or 10) controlling answer length and structure (Feature F20)",
+    )
 
 
 class ChatAnswerResponse(BaseModel):
@@ -44,6 +48,10 @@ class ChatAnswerResponse(BaseModel):
     subject_id: str = Field(..., description="UUID of the subject")
     role: Literal["assistant"] = "assistant"
     text: str = Field(..., description="The answer content")
+    marks: Optional[Literal[2, 5, 10]] = Field(
+        default=None,
+        description="Exam mark format used (2, 5, or 10), if requested",
+    )
     answered_from: Literal["notes", "general"] = Field(
         ...,
         description="'notes' if answered with confidence from notes; 'general' if flagged 'Not found in your notes'",

@@ -110,5 +110,14 @@ class Settings:
     # Maximum autocomplete suggestions returned by topic search
     GRAPH_SEARCH_MAX_SUGGESTIONS: int = int(os.getenv("GRAPH_SEARCH_MAX_SUGGESTIONS", "10"))
 
+    # Exam Mode Settings (Task T17, Decisions D09, D10, D11, Features F18-F20, Risks R05, R10)
+    EXAM_QUESTION_MODEL: str = os.getenv("EXAM_QUESTION_MODEL", "gemini-3.5-flash")
+    EXAM_CLUSTER_CONFIRM_MODEL: str = os.getenv("EXAM_CLUSTER_CONFIRM_MODEL", "gemini-3.5-flash-lite")
+    EXAM_QUESTION_TEMPERATURE: float = float(os.getenv("EXAM_QUESTION_TEMPERATURE", "0.1"))
+    # Cosine similarity threshold for candidate same-question pairs across uploaded papers
+    EXAM_QUESTION_SIMILARITY_THRESHOLD: float = float(os.getenv("EXAM_QUESTION_SIMILARITY_THRESHOLD", "0.75"))
+    # Default max important concepts returned in Exam Mode
+    EXAM_IMPORTANT_CONCEPTS_LIMIT: int = int(os.getenv("EXAM_IMPORTANT_CONCEPTS_LIMIT", "15"))
+
 
 settings = Settings()

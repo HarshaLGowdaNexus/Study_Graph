@@ -385,7 +385,7 @@ export const UploadPage: React.FC = () => {
               1. Choose Destination Folder
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Subject Selection */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
@@ -437,6 +437,22 @@ export const UploadPage: React.FC = () => {
                       Module {m}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              {/* Source Kind Selection */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                  Source Type
+                </label>
+                <select
+                  value={sourceKind}
+                  onChange={(e) => setSourceKind(e.target.value)}
+                  className="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="notes">Lecture Notes</option>
+                  <option value="textbook">Textbook</option>
+                  <option value="paper">Previous-Year Paper</option>
                 </select>
               </div>
             </div>
