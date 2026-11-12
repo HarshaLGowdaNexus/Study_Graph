@@ -23,6 +23,7 @@ from psycopg2.extras import RealDictCursor
 
 from backend.app.core.config import settings
 from backend.app.database import get_db_cursor
+from backend.app.services.cost_service import log_token_usage
 from backend.app.schemas.chat import (
     ChatAnswerResponse,
     ChatHistoryResponse,
@@ -278,10 +279,19 @@ class ChatService:
                 f"Explain this concept clearly and educationally for a university exam.\n"
                 f"{marks_instruction}"
             )
-            raw_gen, _ = self._generate_with_retry(
+            raw_gen, gen_tokens = self._generate_with_retry(
                 prompt=general_prompt,
                 system_instruction="You are an honest university tutor providing a clear general-knowledge explanation.",
             )
+            if gen_tokens and gen_tokens.get("total_tokens", 0) > 0:
+                log_token_usage(
+                    user_id=str(user_id),
+                    operation="chat_message",
+                    model="gemini-1.5-flash",
+                    prompt_tokens=gen_tokens.get("prompt_tokens", 0),
+                    completion_tokens=gen_tokens.get("completion_tokens", 0),
+                    subject_id=str(subject_id) if subject_id else None,
+                )
             answer_text = f"Not found in your notes.\n\n### General Knowledge Answer\n{raw_gen.strip()}"
             answered_from = "general"
             citations = []
@@ -325,13 +335,22 @@ class ChatService:
                 f"{pref_rule}"
             )
 
-            raw_resp, _ = self._generate_with_retry(
+            raw_resp, resp_tokens = self._generate_with_retry(
                 prompt=grounded_prompt,
                 system_instruction=(
                     "You are StudyGraph's grounded study assistant. You answer strictly from student notes "
                     "and refuse to bluff. If notes do not have the answer, output NOT_FOUND_IN_NOTES: followed by a general answer."
                 ),
             )
+            if resp_tokens and resp_tokens.get("total_tokens", 0) > 0:
+                log_token_usage(
+                    user_id=str(user_id),
+                    operation="chat_message",
+                    model="gemini-1.5-flash",
+                    prompt_tokens=resp_tokens.get("prompt_tokens", 0),
+                    completion_tokens=resp_tokens.get("completion_tokens", 0),
+                    subject_id=str(subject_id) if subject_id else None,
+                )
 
             if raw_resp.strip().startswith("NOT_FOUND_IN_NOTES:"):
                 # LLM determined excerpts do not contain the answer

@@ -4,11 +4,14 @@ Relies on Decision D06: Supabase Storage.
 Handles saving raw study materials (PDFs, presentations, images) into cloud storage.
 """
 
+import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import httpx
 from backend.app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class StorageService:
@@ -193,6 +196,22 @@ class StorageService:
                     await client.delete(delete_url, headers=headers)
             except Exception:
                 pass
+
+    async def delete_user_files(self, storage_paths: List[str]) -> int:
+        """
+        Deletes a list of files from both local storage cache and Supabase Storage (Feature F22, Rule 11).
+        Returns count of successfully deleted files.
+        """
+        deleted_count = 0
+        for uri in storage_paths:
+            if not uri:
+                continue
+            try:
+                await self.delete_file(uri)
+                deleted_count += 1
+            except Exception as e:
+                logger.warning(f"[StorageService] Failed to delete file {uri}: {e}")
+        return deleted_count
 
 
 storage_service = StorageService()

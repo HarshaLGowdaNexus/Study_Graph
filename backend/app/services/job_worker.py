@@ -17,6 +17,7 @@ from backend.app.database import get_db_cursor
 from backend.app.schemas.candidate import CandidateSearchParams
 from backend.app.services.candidate_finder import CandidateFinderService
 from backend.app.services.cluster_service import cluster_service
+from backend.app.services.cost_service import log_token_usage
 from backend.app.services.dedupe_service import DedupeService
 from backend.app.services.embedding_service import EmbeddingService
 from backend.app.services.exam_service import exam_service
@@ -113,6 +114,18 @@ async def process_document_job(document_id: str, user_id: str) -> None:
             f"{extraction_result.vision_pages} vision, {extraction_result.total_tokens} tokens)"
         )
 
+        # Log vision OCR token usage if vision was used
+        if extraction_result.vision_pages > 0 and extraction_result.total_tokens > 0:
+            log_token_usage(
+                user_id=user_id,
+                operation="vision_ocr",
+                model="gemini-1.5-flash",
+                prompt_tokens=int(extraction_result.total_tokens * 0.75),
+                completion_tokens=int(extraction_result.total_tokens * 0.25),
+                subject_id=subject_id,
+                document_id=document_id,
+            )
+
         # Step 5: Save chunks to PostgreSQL (idempotent overwrite for this doc)
         with get_db_cursor() as cursor:
             cursor.execute("DELETE FROM chunks WHERE document_id = %s;", (document_id,))
@@ -162,6 +175,17 @@ async def process_document_job(document_id: str, user_id: str) -> None:
             f"{len(created_topic_ids)} topics identified, {topic_result.topics_rejected} rejected, "
             f"tokens used: {topic_result.token_usage['total_tokens']}"
         )
+
+        if topic_result.token_usage and topic_result.token_usage.get("total_tokens", 0) > 0:
+            log_token_usage(
+                user_id=user_id,
+                operation="topic_extraction",
+                model="gemini-1.5-flash",
+                prompt_tokens=topic_result.token_usage.get("prompt_tokens", 0),
+                completion_tokens=topic_result.token_usage.get("completion_tokens", 0),
+                subject_id=subject_id,
+                document_id=document_id,
+            )
 
         new_links_count = 0
         cross_links_count = 0
@@ -225,6 +249,16 @@ async def process_document_job(document_id: str, user_id: str) -> None:
                     f"[Job Worker] Link judge evaluated candidates: "
                     f"{judge_batch.edges_created} edges created, {judge_batch.candidates_rejected} rejected."
                 )
+                if hasattr(judge_batch, "token_usage") and judge_batch.token_usage:
+                    log_token_usage(
+                        user_id=user_id,
+                        operation="link_judging",
+                        model="gemini-1.5-flash",
+                        prompt_tokens=judge_batch.token_usage.get("prompt_tokens", 0),
+                        completion_tokens=judge_batch.token_usage.get("completion_tokens", 0),
+                        subject_id=subject_id,
+                        document_id=document_id,
+                    )
             except Exception as judge_err:
                 logger.warning(f"[Job Worker] Link judge error (non-fatal): {judge_err}")
 

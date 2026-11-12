@@ -3,7 +3,8 @@ Main FastAPI Application Entrypoint for StudyGraph.
 Relies on Decision D04: Python with FastAPI.
 """
 
-from fastapi import FastAPI
+import time
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.api.routes.candidates import router as candidates_router
 from backend.app.api.routes.chat import router as chat_router
@@ -11,6 +12,7 @@ from backend.app.api.routes.dedupe import router as dedupe_router
 from backend.app.api.routes.edges import router as edges_router
 from backend.app.api.routes.exam import router as exam_router
 from backend.app.api.routes.graphs import router as graphs_router
+from backend.app.api.routes.privacy import router as privacy_router
 from backend.app.api.routes.syllabus import router as syllabus_router
 from backend.app.api.routes.theory import router as theory_router
 from backend.app.api.routes.topics import router as topics_router
@@ -39,6 +41,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add timing header middleware to measure latency on every request (Task T20)
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    process_time = time.perf_counter() - start_time
+    response.headers["X-Process-Time"] = f"{process_time * 1000:.2f}ms"
+    return response
+
+
 # Register route modules
 app.include_router(upload_router, prefix="/api")
 app.include_router(topics_router, prefix="/api")
@@ -50,6 +62,7 @@ app.include_router(theory_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(exam_router, prefix="/api")
 app.include_router(syllabus_router, prefix="/api")
+app.include_router(privacy_router, prefix="/api")
 
 
 @app.get("/", tags=["Health"])

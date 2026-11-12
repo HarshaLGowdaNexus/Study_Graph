@@ -12,9 +12,14 @@ import {
   RefreshCw,
   X,
   Sparkles,
+  Trash2,
+  DollarSign,
 } from "lucide-react";
 import { TopicReviewModal } from "../review/TopicReviewModal";
 import { SyllabusModal } from "../syllabus/SyllabusModal";
+import { ConsentBanner } from "./ConsentBanner";
+import { CostSummaryModal } from "./CostSummaryModal";
+import { DeleteDataModal } from "./DeleteDataModal";
 
 // Student Profiles for testing user isolation (Privacy Rule 11)
 const DEMO_USERS = [
@@ -73,6 +78,10 @@ export const UploadPage: React.FC = () => {
   // Syllabus Modal state (T18)
   const [isSyllabusOpen, setIsSyllabusOpen] = useState<boolean>(false);
   const [prefSaving, setPrefSaving] = useState<boolean>(false);
+
+  // Privacy & Cost Modal states (T20)
+  const [isCostOpen, setIsCostOpen] = useState<boolean>(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -407,25 +416,50 @@ export const UploadPage: React.FC = () => {
           </p>
         </div>
 
-        {/* User Privacy Switcher (Demonstrates Rule 11: Privacy) */}
-        <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            Active Student:
+        {/* User Privacy Switcher & Controls (Task T20, Rule 11) */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-xs flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              Active Student:
+            </div>
+            <select
+              value={activeUser.id}
+              onChange={(e) => handleSwitchUser(e.target.value)}
+              className="text-sm font-medium text-slate-800 bg-slate-50 border border-slate-300 rounded px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              {DEMO_USERS.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            value={activeUser.id}
-            onChange={(e) => handleSwitchUser(e.target.value)}
-            className="text-sm font-medium text-slate-800 bg-slate-50 border border-slate-300 rounded px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+
+          {/* Usage & Costs button */}
+          <button
+            onClick={() => setIsCostOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+            title="View AI tokens and estimated costs (Rule 11)"
           >
-            {DEMO_USERS.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
+            <DollarSign className="w-4 h-4 text-emerald-600" />
+            <span>Usage & Costs</span>
+          </button>
+
+          {/* Delete All Data button */}
+          <button
+            onClick={() => setIsDeleteOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+            title="Permanently wipe all my study notes, topics, and chats (F22)"
+          >
+            <Trash2 className="w-4 h-4 text-red-500" />
+            <span>Delete All My Data</span>
+          </button>
         </div>
       </div>
+
+      {/* First Upload Privacy & Processing Consent Banner (Feature F22, Rule 11) */}
+      <ConsentBanner userId={activeUser.id} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Folder Configuration & Upload Box */}
@@ -902,6 +936,32 @@ export const UploadPage: React.FC = () => {
           activeUserEmail={activeUser.email}
           initialTab="upload"
           onClose={() => setIsSyllabusOpen(false)}
+        />
+      )}
+
+      {/* Usage & Cost Summary Modal (T20, Rule 11) */}
+      {isCostOpen && (
+        <CostSummaryModal
+          userId={activeUser.id}
+          userEmail={activeUser.email}
+          onClose={() => setIsCostOpen(false)}
+        />
+      )}
+
+      {/* Delete All My Data Confirmation Modal (T20, Feature F22, Rule 11) */}
+      {isDeleteOpen && (
+        <DeleteDataModal
+          userId={activeUser.id}
+          userEmail={activeUser.email}
+          userName={activeUser.name}
+          onClose={() => setIsDeleteOpen(false)}
+          onDataDeleted={() => {
+            setSubjects([]);
+            setSelectedSubjectId("");
+            setDocuments([]);
+            resetUploadState();
+            fetchSubjectsForUser(activeUser.id, activeUser.email);
+          }}
         />
       )}
     </div>
