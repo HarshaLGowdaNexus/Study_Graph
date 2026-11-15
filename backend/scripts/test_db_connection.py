@@ -18,8 +18,6 @@ EXPECTED_TABLES = [
     "universities",
     "schemes",
     "syllabus_subjects",
-    "syllabus_topics",
-    "syllabus_topic_map",
     "users",
     "subjects",
     "documents",

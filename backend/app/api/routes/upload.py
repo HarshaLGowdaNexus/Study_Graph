@@ -5,7 +5,7 @@ Enforces Rule 11 (Privacy): All queries and storage paths strictly belong to the
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status, BackgroundTasks
 from pydantic import BaseModel
 import psycopg2.extras
@@ -32,6 +32,17 @@ class SubjectResponse(BaseModel):
     id: str
     name: str
     source_preference: str
+
+
+class SubjectPreferenceRequest(BaseModel):
+    source_preference: Literal["notes", "textbook"]
+
+
+class SubjectPreferenceResponse(BaseModel):
+    subject_id: str
+    subject_name: str
+    source_preference: Literal["notes", "textbook"]
+    message: str
 
 
 class DocumentStatusResponse(BaseModel):
@@ -115,6 +126,43 @@ async def create_subject(
         )
         row = cursor.fetchone()
         return SubjectResponse(id=str(row[0]), name=row[1], source_preference=row[2])
+
+
+@router.patch("/subjects/{subject_id}/preference", response_model=SubjectPreferenceResponse)
+async def update_subject_source_preference(
+    subject_id: str,
+    payload: SubjectPreferenceRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Updates the preferred source ('notes' or 'textbook') for a subject owned by the student (Feature F17).
+    """
+    pref = payload.source_preference
+    subject_name = "Subject"
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            "SELECT id, name FROM subjects WHERE id = %s AND user_id = %s;",
+            (subject_id, current_user.id),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Subject not found or access denied.",
+            )
+        subject_name = row[1]
+        cursor.execute(
+            "UPDATE subjects SET source_preference = %s WHERE id = %s AND user_id = %s;",
+            (pref, subject_id, current_user.id),
+        )
+
+    label = "Lecture Notes" if pref == "notes" else "Textbook"
+    return SubjectPreferenceResponse(
+        subject_id=str(subject_id),
+        subject_name=subject_name,
+        source_preference=pref,
+        message=f"Preferred source for '{subject_name}' set to {label}.",
+    )
 
 
 # ------------------------------------------------------------------------------

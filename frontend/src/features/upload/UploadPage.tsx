@@ -16,7 +16,6 @@ import {
   DollarSign,
 } from "lucide-react";
 import { TopicReviewModal } from "../review/TopicReviewModal";
-import { SyllabusModal } from "../syllabus/SyllabusModal";
 import { ConsentBanner } from "./ConsentBanner";
 import { CostSummaryModal } from "./CostSummaryModal";
 import { DeleteDataModal } from "./DeleteDataModal";
@@ -75,8 +74,6 @@ export const UploadPage: React.FC = () => {
 
   // Review Screen Modal state (T06)
   const [reviewingDoc, setReviewingDoc] = useState<DocumentItem | null>(null);
-  // Syllabus Modal state (T18)
-  const [isSyllabusOpen, setIsSyllabusOpen] = useState<boolean>(false);
   const [prefSaving, setPrefSaving] = useState<boolean>(false);
 
   // Privacy & Cost Modal states (T20)
@@ -543,7 +540,7 @@ export const UploadPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Create Custom Subject Option & T18 Syllabus / Source Preference Controls */}
+            {/* Create Custom Subject Option & Source Preference Controls */}
             <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
               <div>
                 {!isCreatingSubject ? (
@@ -590,11 +587,10 @@ export const UploadPage: React.FC = () => {
                       type="button"
                       disabled={prefSaving}
                       onClick={() => handlePreferenceChange("notes")}
-                      className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
-                        (activeSubject?.source_preference || "notes") === "notes"
+                      className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${(activeSubject?.source_preference || "notes") === "notes"
                           ? "bg-indigo-600 text-white"
                           : "text-slate-600 hover:bg-slate-200"
-                      }`}
+                        }`}
                     >
                       Notes
                     </button>
@@ -602,24 +598,14 @@ export const UploadPage: React.FC = () => {
                       type="button"
                       disabled={prefSaving}
                       onClick={() => handlePreferenceChange("textbook")}
-                      className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
-                        activeSubject?.source_preference === "textbook"
+                      className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${activeSubject?.source_preference === "textbook"
                           ? "bg-indigo-600 text-white"
                           : "text-slate-600 hover:bg-slate-200"
-                      }`}
+                        }`}
                     >
                       Textbook
                     </button>
                   </div>
-
-                  {/* Optional Syllabus Upload & Ghost Nodes Modal Trigger (Feature F16) */}
-                  <button
-                    type="button"
-                    onClick={() => setIsSyllabusOpen(true)}
-                    className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-semibold transition cursor-pointer"
-                  >
-                    Optional: Syllabus & Ghost Nodes
-                  </button>
                 </div>
               )}
             </div>
@@ -922,20 +908,6 @@ export const UploadPage: React.FC = () => {
               loadDocumentsForSubject(selectedSubjectId, activeUser.id, activeUser.email);
             }
           }}
-        />
-      )}
-
-      {/* Syllabus Ghost Nodes Modal (T18) */}
-      {selectedSubjectId && (
-        <SyllabusModal
-          key={selectedSubjectId}
-          isOpen={isSyllabusOpen}
-          subjectId={selectedSubjectId}
-          subjectName={activeSubject?.name || "Subject"}
-          activeUserId={activeUser.id}
-          activeUserEmail={activeUser.email}
-          initialTab="upload"
-          onClose={() => setIsSyllabusOpen(false)}
         />
       )}
 

@@ -20,7 +20,6 @@ import { GraphCanvas, GraphCanvasHandle } from "./GraphCanvas";
 import { NodeDetailPanel, GraphNodeData, ConnectedConceptChip } from "./NodeDetailPanel";
 import { LinkDetailPanel, GraphLinkData } from "./LinkDetailPanel";
 import { TopicSearchBar } from "./TopicSearchBar";
-import { SyllabusModal } from "../syllabus/SyllabusModal";
 import {
   DEFAULT_GRAPH_CONFIG,
   GraphRuntimeConfig,
@@ -50,17 +49,9 @@ interface GraphResponse {
   nodes: GraphNodeData[];
   links: GraphLinkData[];
   clusters: ClusterItem[];
-  syllabus_coverage?: {
-    has_syllabus: boolean;
-    total_syllabus_topics: number;
-    covered_count: number;
-    gap_count: number;
-    coverage_percent: number;
-  };
   stats: {
     node_count: number;
     real_node_count?: number;
-    ghost_node_count?: number;
     link_count: number;
     cluster_count: number;
     is_synthetic?: boolean;
@@ -105,7 +96,6 @@ export const SubjectGraphPage: React.FC = () => {
   // Selection state for side drawers
   const [selectedNode, setSelectedNode] = useState<GraphNodeData | null>(null);
   const [selectedLink, setSelectedLink] = useState<GraphLinkData | null>(null);
-  const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState(false);
 
   const canvasRef = useRef<GraphCanvasHandle>(null);
 
@@ -252,19 +242,19 @@ export const SubjectGraphPage: React.FC = () => {
           foundNode
             ? { ...foundNode, hop_distance: 0, is_focus: true }
             : {
-                id: suggestion.id,
-                name: suggestion.keyword,
-                keyword: suggestion.keyword,
-                aliases: suggestion.aliases,
-                explanation: suggestion.explanation,
-                real_world_use: suggestion.real_world_use,
-                module_no: suggestion.module_no,
-                reviewed: suggestion.reviewed,
-                subject_id: suggestion.subject_id,
-                subject_name: suggestion.subject_name,
-                hop_distance: 0,
-                is_focus: true,
-              }
+              id: suggestion.id,
+              name: suggestion.keyword,
+              keyword: suggestion.keyword,
+              aliases: suggestion.aliases,
+              explanation: suggestion.explanation,
+              real_world_use: suggestion.real_world_use,
+              module_no: suggestion.module_no,
+              reviewed: suggestion.reviewed,
+              subject_id: suggestion.subject_id,
+              subject_name: suggestion.subject_name,
+              hop_distance: 0,
+              is_focus: true,
+            }
         );
         setTimeout(() => canvasRef.current?.resetView(), 220);
       } else {
@@ -497,21 +487,19 @@ export const SubjectGraphPage: React.FC = () => {
           <div className="ml-0 sm:ml-4 flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
             <button
               onClick={() => handleToggleStressTest(false)}
-              className={`px-2.5 py-1 rounded-md font-semibold transition ${
-                !isStressTestMode
+              className={`px-2.5 py-1 rounded-md font-semibold transition ${!isStressTestMode
                   ? "bg-white text-indigo-700 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               Real Notes
             </button>
             <button
               onClick={() => handleToggleStressTest(true)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition ${
-                isStressTestMode
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition ${isStressTestMode
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               <Zap className="w-3 h-3" />
               500-Topic Stress Test
@@ -561,37 +549,13 @@ export const SubjectGraphPage: React.FC = () => {
             </div>
           )}
 
-          {/* Syllabus & Ghost Nodes Coverage Button (Task T18, F16) */}
-          {!isStressTestMode && selectedSubjectId && (
-            <button
-              type="button"
-              onClick={() => setIsSyllabusModalOpen(true)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${
-                graphData?.syllabus_coverage?.has_syllabus
-                  ? "bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100"
-                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 text-indigo-600" />
-              {graphData?.syllabus_coverage?.has_syllabus ? (
-                <span>
-                  Syllabus: {graphData.syllabus_coverage.coverage_percent}% (
-                  {graphData.syllabus_coverage.gap_count} gaps)
-                </span>
-              ) : (
-                <span>Upload Syllabus (Ghost Nodes)</span>
-              )}
-            </button>
-          )}
-
           {/* Weak-link toggle (Rule 13.8) */}
           <button
             onClick={() => setShowWeakLinks(!showWeakLinks)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${
-              showWeakLinks
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${showWeakLinks
                 ? "bg-amber-50 text-amber-800 border-amber-300 shadow-2xs"
                 : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
+              }`}
             title="Toggle links with strength < 3 (Hidden by default to prevent hairballs)"
           >
             {showWeakLinks ? <Eye className="w-3.5 h-3.5 text-amber-600" /> : <EyeOff className="w-3.5 h-3.5 text-slate-400" />}
@@ -682,11 +646,10 @@ export const SubjectGraphPage: React.FC = () => {
                   <button
                     key={h}
                     onClick={() => handleChangeHops(h)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
-                      hopCount === h
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${hopCount === h
                         ? "bg-indigo-600 text-white"
                         : "text-slate-600 hover:text-indigo-700"
-                    }`}
+                      }`}
                   >
                     {h} Hops
                   </button>
@@ -722,11 +685,6 @@ export const SubjectGraphPage: React.FC = () => {
           <div className="flex items-center gap-4">
             <span>
               Showing <strong className="text-slate-800">{displayedGraph.nodes.length}</strong> nodes
-              {typeof graphData.stats.ghost_node_count === "number" && graphData.stats.ghost_node_count > 0 && (
-                <span className="text-slate-500 ml-1">
-                  ({graphData.stats.real_node_count || 0} lit + {graphData.stats.ghost_node_count} ghost)
-                </span>
-              )}
               {graphData.nodes.length > displayedGraph.nodes.length && (
                 <span className="text-slate-400 ml-1">
                   (capped from {graphData.stats.total_available_nodes || graphData.nodes.length})
@@ -807,7 +765,6 @@ export const SubjectGraphPage: React.FC = () => {
           connectedLinks={selectedNodeConnectedChips}
           onFocusCluster={(cid) => handleClusterSelect(cid)}
           onFocusTopic={handleFocusConnectedTopic}
-          onOpenSyllabusModal={() => setIsSyllabusModalOpen(true)}
         />
 
         <LinkDetailPanel
@@ -818,25 +775,6 @@ export const SubjectGraphPage: React.FC = () => {
           userAuthHeaders={authHeaders}
         />
       </div>
-
-      {/* Syllabus Ghost Nodes & Gap List Modal (Task T18) */}
-      {selectedSubjectId && (
-        <SyllabusModal
-          key={selectedSubjectId}
-          isOpen={isSyllabusModalOpen}
-          subjectId={selectedSubjectId}
-          subjectName={
-            subjects.find((s) => s.id === selectedSubjectId)?.name ||
-            graphData?.subject_name ||
-            "Subject"
-          }
-          activeUserId={activeUser.id}
-          activeUserEmail={activeUser.email}
-          initialTab={graphData?.syllabus_coverage?.has_syllabus ? "coverage" : "upload"}
-          onClose={() => setIsSyllabusModalOpen(false)}
-          onUpdated={() => fetchSubjectGraph(selectedSubjectId, true)}
-        />
-      )}
     </div>
   );
 };

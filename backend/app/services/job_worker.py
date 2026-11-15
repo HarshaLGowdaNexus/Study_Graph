@@ -25,7 +25,6 @@ from backend.app.services.extractor import extractor_service
 from backend.app.services.graph_service import graph_service
 from backend.app.services.link_judge import LinkJudgeService
 from backend.app.services.storage import storage_service
-from backend.app.services.syllabus_service import syllabus_service
 from backend.app.services.topic_extractor import topic_extractor_service
 
 logger = logging.getLogger(__name__)
@@ -205,21 +204,6 @@ async def process_document_job(document_id: str, user_id: str) -> None:
                 )
             except Exception as ded_err:
                 logger.warning(f"[Job Worker] Deduplication encountered non-fatal error: {ded_err}")
-
-            # Step 8b: Match new/unlocked topics against syllabus ghost nodes (Task T18, Feature F16)
-            try:
-                syl_match_res = syllabus_service.match_subject_topics(
-                    subject_id=subject_id,
-                    user_id=user_id,
-                    refresh_cache=False,
-                )
-                if syl_match_res.matches_created > 0:
-                    logger.info(
-                        f"[Job Worker] Lit up {syl_match_res.matches_created} syllabus ghost node(s) "
-                        f"(Coverage: {syl_match_res.coverage_percent}%)."
-                    )
-            except Exception as syl_err:
-                logger.warning(f"[Job Worker] Syllabus matching encountered non-fatal error: {syl_err}")
 
             # Step 9: Incremental Candidate Discovery (Pipeline Step 9, Task T08)
             # Crucial: Evaluates only the newly extracted topics against the existing graph!

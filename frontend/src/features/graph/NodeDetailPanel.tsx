@@ -36,10 +36,6 @@ export interface GraphNodeData {
   subject_name?: string;
   hop_distance?: number;
   is_focus?: boolean;
-  is_ghost?: boolean;
-  syllabus_topic_id?: string | null;
-  syllabus_title?: string | null;
-  syllabus_match_locked?: boolean;
   x?: number;
   y?: number;
   val?: number; // node degree
@@ -52,7 +48,6 @@ interface NodeDetailPanelProps {
   connectedLinks?: ConnectedConceptChip[];
   onFocusCluster?: (clusterId: string) => void;
   onFocusTopic?: (topicId: string) => void;
-  onOpenSyllabusModal?: () => void;
 }
 
 export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
@@ -62,7 +57,6 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
   connectedLinks = [],
   onFocusCluster,
   onFocusTopic,
-  onOpenSyllabusModal,
 }) => {
   if (!node) return null;
 
@@ -92,11 +86,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
                 {node.hop_distance} {node.hop_distance === 1 ? "hop" : "hops"} away
               </span>
             ) : null}
-            {node.is_ghost ? (
-              <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded bg-slate-200 text-slate-700 border border-dashed border-slate-400">
-                Ghost Node (Gap)
-              </span>
-            ) : node.reviewed ? (
+            {node.reviewed ? (
               <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded bg-emerald-100 text-emerald-800">
                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                 Reviewed
@@ -111,13 +101,6 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
           <h2 className="text-lg font-bold text-slate-900 leading-snug">
             {node.keyword || node.name}
           </h2>
-          {node.syllabus_title && !node.is_ghost && (
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-[11px] font-semibold text-emerald-800">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-              <span>Syllabus Match: {node.syllabus_title}</span>
-              {node.syllabus_match_locked && <span className="text-amber-700">(Locked)</span>}
-            </div>
-          )}
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <Layers className="w-3.5 h-3.5 text-slate-400" />
             <span>{node.parent_cluster_label || node.cluster_label || "General"}</span>
@@ -153,27 +136,6 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
 
       {/* Body Content */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5 text-sm">
-        {node.is_ghost && (
-          <div className="bg-slate-100 rounded-xl p-4 border border-dashed border-slate-300 space-y-2.5">
-            <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Uncovered Syllabus Topic
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              This topic is in your official syllabus for Module {node.module_no || 1}, but no uploaded notes cover it yet.
-              Upload notes for Module {node.module_no || 1} to light it up, or manually map an existing topic.
-            </p>
-            {onOpenSyllabusModal && (
-              <button
-                type="button"
-                onClick={onOpenSyllabusModal}
-                className="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer"
-              >
-                Open Coverage & Map Topic
-              </button>
-            )}
-          </div>
-        )}
-
         {/* Theory Explanation (Rule 13.3: 1-4 lines) */}
         <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100/80 space-y-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900 uppercase tracking-wider">

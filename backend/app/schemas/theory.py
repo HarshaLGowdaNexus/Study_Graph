@@ -49,9 +49,6 @@ class TheoryTopicCard(BaseModel):
     active_source_kind: Optional[str] = Field(None, description="Source kind used for this card: 'notes' or 'textbook'")
     has_multiple_sources: bool = Field(False, description="True if both notes and textbook cover this topic")
     source_citations: List[TheorySourceCitation] = Field(default_factory=list)
-    syllabus_topic_id: Optional[str] = None
-    syllabus_title: Optional[str] = None
-    syllabus_match_locked: bool = False
     links: List[TheoryLinkChip] = Field(default_factory=list)
 
 

@@ -15,8 +15,6 @@ import {
 } from "lucide-react";
 import { TopicCard, TheoryTopicCardData } from "./TopicCard";
 import { TheoryLinkChipData } from "./LinkChip";
-import { SyllabusModal } from "../syllabus/SyllabusModal";
-import { SubjectSyllabusResponse } from "../syllabus/syllabusUtils";
 
 interface SubjectItem {
   id: string;
@@ -60,8 +58,6 @@ export const TheoryPage: React.FC = () => {
   const [highlightedTopicId, setHighlightedTopicId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [prefSaving, setPrefSaving] = useState(false);
-  const [syllabusInfo, setSyllabusInfo] = useState<SubjectSyllabusResponse | null>(null);
-  const [isSyllabusModalOpen, setIsSyllabusModalOpen] = useState(false);
 
   // Load subject list on mount or when student changes
   useEffect(() => {
@@ -125,13 +121,6 @@ export const TheoryPage: React.FC = () => {
       }
       const data: SubjectTheoryResponse = await res.json();
       setTheoryData(data);
-      // Load syllabus coverage in parallel (non-blocking)
-      fetch(`/api/subjects/${subjectId}/syllabus`, {
-        headers: { "x-test-user-id": uid, "x-test-user-email": uemail },
-      })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((s) => setSyllabusInfo(s))
-        .catch(() => setSyllabusInfo(null));
     } catch (err: any) {
       setError(err.message || "Could not load theory revision data.");
     } finally {
@@ -214,6 +203,7 @@ export const TheoryPage: React.FC = () => {
         body: JSON.stringify({ source_preference: nextPref }),
       });
       if (res.ok) {
+        setTheoryData((prev) => (prev ? { ...prev, source_preference: nextPref } : null));
         showToast(`Switched preferred source to ${nextPref === "notes" ? "Lecture Notes" : "Textbook"}`);
         await fetchTheoryData(selectedSubjectId, activeUser.id, activeUser.email);
       }
@@ -319,7 +309,7 @@ export const TheoryPage: React.FC = () => {
               )}
             </div>
 
-            {/* Controls: Source Preference Toggle (F17), Syllabus Coverage (F16), Weak Links & Stats */}
+            {/* Controls: Source Preference Toggle (F17), Weak Links & Stats */}
             <div className="flex flex-wrap items-center gap-2.5 self-end sm:self-auto">
               {/* Notes vs Textbook Preference Toggle */}
               <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs">
@@ -330,7 +320,7 @@ export const TheoryPage: React.FC = () => {
                   onClick={() => handlePreferenceToggle("notes")}
                   className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
                     (theoryData.source_preference || "notes") === "notes"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-indigo-600 text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-200"
                   }`}
                 >
@@ -342,7 +332,7 @@ export const TheoryPage: React.FC = () => {
                   onClick={() => handlePreferenceToggle("textbook")}
                   className={`px-2 py-0.5 rounded font-semibold transition cursor-pointer ${
                     theoryData.source_preference === "textbook"
-                      ? "bg-purple-600 text-white"
+                      ? "bg-indigo-600 text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-200"
                   }`}
                 >
@@ -350,28 +340,13 @@ export const TheoryPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Syllabus Coverage & Gaps button */}
-              {selectedSubjectId && (
-                <button
-                  type="button"
-                  onClick={() => setIsSyllabusModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border bg-indigo-50/70 text-indigo-800 border-indigo-200 hover:bg-indigo-100 transition cursor-pointer"
-                >
-                  <Layers className="w-3.5 h-3.5 text-indigo-600" />
-                  {syllabusInfo?.has_syllabus
-                    ? `Syllabus ${syllabusInfo.coverage_percent}% (${syllabusInfo.gap_count} gaps)`
-                    : "Syllabus & Gaps"}
-                </button>
-              )}
-
               {/* Weak Links Toggle (Rule 13.8) */}
               <button
                 onClick={() => setShowWeakLinks(!showWeakLinks)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
-                  showWeakLinks
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${showWeakLinks
                     ? "bg-amber-50 text-amber-800 border-amber-200 shadow-2xs"
                     : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                }`}
+                  }`}
                 title="Toggle weak links (strength 1-2). Hidden by default per RULEBOOK Rule 13.8."
               >
                 {showWeakLinks ? (
@@ -517,21 +492,6 @@ export const TheoryPage: React.FC = () => {
             Clear search
           </button>
         </div>
-      )}
-
-      {/* Syllabus Coverage & Gap Modal */}
-      {selectedSubjectId && (
-        <SyllabusModal
-          key={selectedSubjectId}
-          isOpen={isSyllabusModalOpen}
-          subjectId={selectedSubjectId}
-          subjectName={theoryData?.subject_name || "Subject"}
-          activeUserId={activeUser.id}
-          activeUserEmail={activeUser.email}
-          initialTab={syllabusInfo?.has_syllabus ? "coverage" : "upload"}
-          onClose={() => setIsSyllabusModalOpen(false)}
-          onUpdated={() => fetchTheoryData(selectedSubjectId, activeUser.id, activeUser.email)}
-        />
       )}
     </div>
   );

@@ -73,7 +73,7 @@ def get_subject_theory(
         if source_preference not in ("notes", "textbook"):
             source_preference = "notes"
 
-        # Step 2: Fetch all topics for this subject (with source citations & syllabus match)
+        # Step 2: Fetch all topics for this subject (with source citations)
         cur.execute(
             """
             SELECT 
@@ -85,13 +85,9 @@ def get_subject_theory(
                 t.module_no, 
                 t.reviewed,
                 COALESCE(t.source_variants, '{}'::jsonb) AS source_variants,
-                t.syllabus_topic_id,
-                COALESCE(t.syllabus_match_locked, FALSE) AS syllabus_match_locked,
-                st.title AS syllabus_title,
                 c.label AS cluster_label,
                 COALESCE(src.citations_json, '[]'::json) AS source_citations
             FROM topics t
-            LEFT JOIN syllabus_topics st ON t.syllabus_topic_id = st.id
             LEFT JOIN clusters c ON t.cluster_id = c.id
             LEFT JOIN (
                 SELECT
@@ -285,9 +281,6 @@ def get_subject_theory(
             active_source_kind=active_kind,
             has_multiple_sources=has_multiple,
             source_citations=ordered_cits,
-            syllabus_topic_id=str(tr["syllabus_topic_id"]) if tr.get("syllabus_topic_id") else None,
-            syllabus_title=tr.get("syllabus_title"),
-            syllabus_match_locked=bool(tr.get("syllabus_match_locked")),
             links=sorted_chips,
         )
         modules_map[mod_no].append(card)

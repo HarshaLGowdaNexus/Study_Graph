@@ -119,14 +119,7 @@ class Settings:
     # Default max important concepts returned in Exam Mode
     EXAM_IMPORTANT_CONCEPTS_LIMIT: int = int(os.getenv("EXAM_IMPORTANT_CONCEPTS_LIMIT", "15"))
 
-    # Syllabus Ghost Nodes & Source Preference Settings (Task T18, Decisions D09, D10, Features F16, F17)
-    SYLLABUS_PARSE_MODEL: str = os.getenv("SYLLABUS_PARSE_MODEL", "gemini-flash-lite-latest")
-    SYLLABUS_MATCH_CONFIRM_MODEL: str = os.getenv("SYLLABUS_MATCH_CONFIRM_MODEL", "gemini-flash-lite-latest")
-    SYLLABUS_PARSE_TEMPERATURE: float = float(os.getenv("SYLLABUS_PARSE_TEMPERATURE", "0.1"))
-    # Minimum cosine similarity for a syllabus topic to be considered a match candidate for a note topic
-    SYLLABUS_MATCH_THRESHOLD: float = float(os.getenv("SYLLABUS_MATCH_THRESHOLD", "0.62"))
-    # Similarity at or above which exact/near-identical normalized topics confirm without extra LLM cost
-    SYLLABUS_AUTO_EXACT_THRESHOLD: float = float(os.getenv("SYLLABUS_AUTO_EXACT_THRESHOLD", "0.92"))
+    # Source Preference Settings (Task T18B, Feature F17)
     # Tie-breaker boost applied to chunks matching the subject's preferred source_kind ('notes' or 'textbook')
     SOURCE_PREFERENCE_BOOST: float = float(os.getenv("SOURCE_PREFERENCE_BOOST", "0.08"))
 

@@ -20,9 +20,6 @@ export interface TheoryTopicCardData {
   active_source_kind?: string | null;
   has_multiple_sources?: boolean;
   source_citations?: TheorySourceCitationData[];
-  syllabus_topic_id?: string | null;
-  syllabus_title?: string | null;
-  syllabus_match_locked?: boolean;
   links: TheoryLinkChipData[];
 }
 

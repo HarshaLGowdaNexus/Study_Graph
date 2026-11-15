@@ -207,8 +207,7 @@ class DedupeService:
             cursor.execute(
                 """
                 SELECT id, subject_id, keyword, explanation, real_world_use, module_no,
-                       COALESCE(source_variants, '{}'::jsonb) AS source_variants,
-                       syllabus_topic_id, COALESCE(syllabus_match_locked, FALSE) AS syllabus_match_locked
+                       COALESCE(source_variants, '{}'::jsonb) AS source_variants
                 FROM topics
                 WHERE id IN (%s, %s)
                 """,
@@ -314,21 +313,17 @@ class DedupeService:
                     (str(surviving_topic_id), old_surviving_kw),
                 )
 
-            # Preserve source_variants and syllabus mapping/locks across merge
+            # Preserve source_variants across merge
             surv_variants = surviving.get("source_variants") if isinstance(surviving.get("source_variants"), dict) else {}
             merg_variants = merged.get("source_variants") if isinstance(merged.get("source_variants"), dict) else {}
             combined_variants = {**merg_variants, **surv_variants}
-            combined_syl_id = surviving.get("syllabus_topic_id") or merged.get("syllabus_topic_id")
-            combined_locked = bool(surviving.get("syllabus_match_locked")) or bool(merged.get("syllabus_match_locked"))
             cursor.execute(
                 """
                 UPDATE topics
-                SET source_variants = %s::jsonb,
-                    syllabus_topic_id = %s,
-                    syllabus_match_locked = %s
+                SET source_variants = %s::jsonb
                 WHERE id = %s;
                 """,
-                (json.dumps(combined_variants), combined_syl_id, combined_locked, str(surviving_topic_id)),
+                (json.dumps(combined_variants), str(surviving_topic_id)),
             )
 
             # 5b. Re-wire edges connected to merged_topic_id to prevent valid links from being lost by CASCADE

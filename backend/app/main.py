@@ -13,7 +13,6 @@ from backend.app.api.routes.edges import router as edges_router
 from backend.app.api.routes.exam import router as exam_router
 from backend.app.api.routes.graphs import router as graphs_router
 from backend.app.api.routes.privacy import router as privacy_router
-from backend.app.api.routes.syllabus import router as syllabus_router
 from backend.app.api.routes.theory import router as theory_router
 from backend.app.api.routes.topics import router as topics_router
 from backend.app.api.routes.upload import router as upload_router
@@ -61,7 +60,6 @@ app.include_router(graphs_router, prefix="/api")
 app.include_router(theory_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(exam_router, prefix="/api")
-app.include_router(syllabus_router, prefix="/api")
 app.include_router(privacy_router, prefix="/api")
 
 
